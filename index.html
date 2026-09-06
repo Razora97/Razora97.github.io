@@ -190,11 +190,14 @@ main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items
 .roomcode b{display:block; font-size:38px; letter-spacing:.22em; font-weight:700; line-height:1.1}
 .roomcode span{font-size:11px; color:var(--dim)}
 .plist{margin:14px 0 4px}
-.prow{display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--ink-3); border-radius:8px; margin-bottom:5px; font-size:14px}
+.prow{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 12px; background:var(--ink-3); border-radius:8px; margin-bottom:5px; font-size:14px}
 .prow .tagme{font-size:10px; color:var(--spark)}
+.prow .sub{display:block; font-style:normal; font-size:11px; color:var(--dim); margin-top:2px}
+.prow .pts{font-size:19px; font-weight:700; font-variant-numeric:tabular-nums; flex:0 0 auto}
 .prow .res{font-size:12px; color:var(--dim)}
 .prow.first{background:var(--jade); color:#fff}
-.prow.first .res{color:rgba(255,255,255,.85)}
+.prow.first .res, .prow.first .sub{color:rgba(255,255,255,.85)}
+.scorenote{font-size:11px; color:var(--dim); margin-top:9px; line-height:1.5}
 .setup{font-size:13px; color:var(--dim); line-height:1.6}
 .setup ol{padding-left:18px; margin:10px 0}
 .setup li{margin-bottom:7px}
@@ -816,7 +819,7 @@ function submit() {
       done = true;
       if (won) boardEl.children[row].classList.add("win");
       if (mode === "daily") record(won, rows.length);
-      if (mode === "race") pushProgress(true, won);
+      if (mode === "race") { pushProgress(true, won); if (won) claimWin(); }
       setTimeout(() => openStats(true), won ? 1300 : 900);
     } else {
       row++; cur = "";
@@ -904,10 +907,19 @@ function openStats(isResult) {
   nextBtn.disabled = mode === "race" && !(mp && mp.isHost && allReady);
 
   if (isResult) {
-    title.textContent = solved() ? "Solved it" : "Out of guesses";
-    reveal.innerHTML = solved()
-      ? `<div class="answer-reveal">${rows.length} of 6 guesses<b>${target}</b></div>`
-      : `<div class="answer-reveal">The word was<b>${target}</b></div>`;
+    const champ = mode === "race" && mp && mp.winner && (mp.players || {})[mp.winner];
+    if (mode === "race" && champ && mp.winner !== myId) {
+      title.textContent = `${champ.name} won it`;
+      reveal.innerHTML = `<div class="answer-reveal">Solved in ${(champ.rows || []).length}<b>${target}</b></div>`;
+    } else if (mode === "race" && solved()) {
+      title.textContent = "You won the round";
+      reveal.innerHTML = `<div class="answer-reveal">${rows.length} of 6 guesses<b>${target}</b></div>`;
+    } else {
+      title.textContent = solved() ? "Solved it" : "Out of guesses";
+      reveal.innerHTML = solved()
+        ? `<div class="answer-reveal">${rows.length} of 6 guesses<b>${target}</b></div>`
+        : `<div class="answer-reveal">The word was<b>${target}</b></div>`;
+    }
   } else {
     title.textContent = mode === "race" ? "The race" : "Statistics";
     reveal.innerHTML = "";
@@ -1116,7 +1128,7 @@ async function createRoom() {
     await fb.set(roomRef("rooms/" + code), {
       word: randomWord(), hostId: myId, status: "waiting",
       round: 1, createdAt: Date.now(),
-      players: { [myId]: { name, rows: [], done: false, solved: false, joinedAt: Date.now() } }
+      players: { [myId]: { name, rows: [], done: false, solved: false, score: 0, joinedAt: Date.now() } }
     });
     mp = { code, pid: myId, name, isHost: true, status: "waiting", players: {} };
     watchRoom();
@@ -1143,7 +1155,7 @@ async function joinRoom(code) {
       hint.textContent = `That room is full — ${MAX_PLAYERS} players is the limit. Start a second room.`;
       return;
     }
-    await fb.set(roomRef(`rooms/${code}/players/${myId}`), { name, rows: [], done: false, solved: false, joinedAt: Date.now() });
+    await fb.set(roomRef(`rooms/${code}/players/${myId}`), { name, rows: [], done: false, solved: false, score: (existing[myId] && existing[myId].score) || 0, joinedAt: Date.now() });
     mp = { code, pid: myId, name, isHost: snap.val().hostId === myId, status: snap.val().status, players: {} };
     watchRoom();
     renderLobby();
@@ -1178,16 +1190,55 @@ function watchRoom() {
     }
     drawRivals();
 
-    // last player standing gets 30 seconds
+    mp.deadline = r.deadline || 0;
+    mp.winner = r.winner || null;
+
     const ps = Object.entries(mp.players || {});
     const stillGuessing = ps.filter(([, p]) => !p.done);
-    if (r.status === "playing" && ps.length > 1 && stillGuessing.length === 1 && !r.deadline && mp.isHost) {
+    const anySolved = ps.some(([, p]) => p.solved);
+
+    // somebody got it — everyone stops here
+    if (r.status === "over" && mode === "race" && !done) {
+      done = true; busy = true;
+      clearInterval(clockTimer);
+      clockEl.classList.remove("on");
+      const w = r.winner && (mp.players || {})[r.winner];
+      pushProgress(true, false);
+      toast(w ? `${w.name} got it` : "Round over");
+      setTimeout(() => openStats(true), 800);
+    }
+
+    // everyone out of guesses, nobody solved
+    if (r.status === "playing" && ps.length > 0 && stillGuessing.length === 0) {
+      endRoundNobodyWon();
+    }
+
+    // one player left and nobody has solved yet — 30 seconds
+    if (r.status === "playing" && ps.length > 1 && !anySolved
+        && stillGuessing.length === 1 && !r.deadline && mp.isHost) {
       fb.update(roomRef("rooms/" + mp.code), { deadline: Date.now() + 30000 }).catch(() => {});
     }
-    mp.deadline = r.deadline || 0;
+
     runClock();
     refreshHomeCards();
   });
+}
+
+async function claimWin() {
+  if (!mp || !fb) return;
+  try {
+    const res = await fb.runTransaction(roomRef(`rooms/${mp.code}/winner`), cur => (cur ? undefined : myId));
+    if (res.committed && res.snapshot.val() === myId) {
+      await fb.runTransaction(roomRef(`rooms/${mp.code}/players/${myId}/score`), s => (s || 0) + 1);
+      await fb.update(roomRef("rooms/" + mp.code), { status: "over", deadline: null });
+    }
+  } catch (e) { /* the round still ends for everyone via the status watcher */ }
+}
+
+async function endRoundNobodyWon() {
+  if (!mp || !fb || !mp.isHost) return;
+  try { await fb.update(roomRef("rooms/" + mp.code), { status: "over", deadline: null }); }
+  catch (e) {}
 }
 
 /* ---------- 30 second finish ---------- */
@@ -1244,7 +1295,7 @@ function syncReadyButton() {
 }
 
 async function startMatch() {
-  const updates = { status: "playing", word: randomWord(), startedAt: Date.now(), deadline: null };
+  const updates = { status: "playing", word: randomWord(), startedAt: Date.now(), deadline: null, winner: null };
   Object.keys(mp.players).forEach(pid => {
     updates[`players/${pid}/rows`] = [];
     updates[`players/${pid}/done`] = false;
@@ -1295,8 +1346,10 @@ function renderLobby() {
     <h2>${mp.isHost ? "Your room" : "Room"}</h2>
     <div class="roomcode"><b>${mp.code}</b><span>${mp.isHost ? "Read this out to your friends" : "You're in"} &middot; ${players.length} of ${MAX_PLAYERS}</span></div>
     <div class="plist">${players.length ? players.map(([pid, p]) =>
-      `<div class="prow"><span>${escapeHtml(p.name)} ${pid === myId ? '<span class="tagme">you</span>' : ""}</span>
-       <span class="res">${p.done ? (p.solved ? (p.rows || []).length + "/6" : "missed") : p.ready ? "ready" : "waiting"}</span></div>`
+      `<div class="prow"><span>${escapeHtml(p.name)} ${pid === myId ? '<span class="tagme">you</span>' : ""}
+         <em class="sub">${p.done ? (p.solved ? "solved in " + (p.rows || []).length : "missed it") : p.ready ? "ready" : "waiting"}</em>
+       </span>
+       <span class="pts">${p.score || 0}</span></div>`
     ).join("") : '<p>Nobody has joined yet.</p>'}</div>
     ${mp.isHost
       ? `<button class="btn primary" id="startBtn" ${played && !allReady ? "disabled" : ""}>${played ? (allReady ? "Start the next round" : `Waiting — ${readyCount} of ${players.length} ready`) : "Start the race"}</button>`
@@ -1318,17 +1371,16 @@ function raceTable() {
   if (!mp) return "";
   const list = Object.entries(mp.players || {}).map(([pid, p]) => ({
     pid, name: p.name, done: p.done, solved: p.solved, ready: p.ready,
-    tries: (p.rows || []).length, at: p.finishedAt || 0
+    score: p.score || 0, tries: (p.rows || []).length, at: p.finishedAt || 0
   }));
-  list.sort((a, b) => {
-    if (a.solved !== b.solved) return a.solved ? -1 : 1;
-    if (a.solved && b.solved) return a.tries - b.tries || a.at - b.at;
-    return b.tries - a.tries;
-  });
-  return `<div class="plist">${list.map((p, i) =>
-    `<div class="prow ${i === 0 && p.solved ? "first" : ""}">
-       <span>${escapeHtml(p.name)} ${p.pid === myId ? '<span class="tagme">you</span>' : ""}</span>
-       <span class="res">${p.solved ? p.tries + "/6" : p.done ? "missed it" : "still guessing"}${p.ready ? " &middot; ready" : ""}</span>
+  list.sort((a, b) => b.score - a.score || a.tries - b.tries);
+  const top = list.length ? list[0].score : 0;
+  return `<div class="plist">${list.map(p =>
+    `<div class="prow ${p.score === top && top > 0 ? "first" : ""}">
+       <span>${escapeHtml(p.name)} ${p.pid === myId ? '<span class="tagme">you</span>' : ""}
+         <em class="sub">${p.solved ? "solved in " + p.tries : p.done ? "missed it" : "still guessing"}${p.ready ? " &middot; ready" : ""}</em>
+       </span>
+       <span class="pts">${p.score}</span>
      </div>`).join("")}</div>`;
 }
 
