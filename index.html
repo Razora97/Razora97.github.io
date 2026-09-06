@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#12172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Wordrush</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#12172a; --ink-2:#1b2138; --ink-3:#252c47;
+  --line:#333b5c; --paper:#eef1f9; --dim:#98a1c0;
+  --jade:#2f9e6b; --ochre:#cf9a35; --slate:#39415f;
+  --spark:#6fd0e8; --danger:#e06a6a;
+  --tile:clamp(44px, 14.5vw, 60px); --gap:6px; --radius:5px; --cell:5px;
+  font-family:"Space Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{height:100%; margin:0}
+body{
+  background:var(--ink); color:var(--paper);
+  display:flex; flex-direction:column; align-items:center;
+  overflow:hidden; overscroll-behavior:none;
+  padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+}
+button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit}
+button:focus-visible, input:focus-visible{outline:2px solid var(--spark); outline-offset:2px}
+
+header{
+  width:100%; max-width:520px; display:flex; align-items:center;
+  justify-content:space-between; gap:10px; padding:10px 14px 8px;
+  border-bottom:1px solid var(--line); flex:0 0 auto;
+}
+.brand{display:flex; align-items:baseline; gap:9px; min-width:0}
+.brand h1{font-size:20px; font-weight:700; letter-spacing:.14em; margin:0; text-transform:lowercase}
+.brand h1 span{color:var(--jade)}
+.mode-tag{font-size:11px; letter-spacing:.08em; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.icons{display:flex; gap:2px; flex:0 0 auto}
+.icons button{width:34px; height:34px; border-radius:8px; display:grid; place-items:center; color:var(--dim); transition:background .15s,color .15s}
+.icons button:hover{background:var(--ink-2); color:var(--paper)}
+.icons button.live{color:var(--jade)}
+.icons svg{width:19px; height:19px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round}
+
+/* opponents strip */
+/* home screen */
+#home{display:none; width:100%; max-width:520px; flex:1 1 auto; flex-direction:column; justify-content:center; gap:9px; padding:18px 16px 26px; overflow-y:auto}
+#home.on{display:flex}
+body.home main, body.home #keyboard, body.home #rivals{display:none}
+.hero{text-align:center; margin-bottom:16px}
+.herotiles{display:flex; gap:5px; justify-content:center; margin-bottom:14px}
+.herotiles i{
+  width:40px; height:40px; border:2px solid var(--line); border-radius:5px;
+  display:grid; place-items:center; font-size:19px; font-weight:700;
+  text-transform:uppercase; font-style:normal;
+}
+.herotiles i.correct{background:var(--jade); border-color:var(--jade); color:#fff}
+.herotiles i.present{background:var(--ochre); border-color:var(--ochre); color:#1a1200}
+.hero p{color:var(--dim); font-size:14px; line-height:1.55; margin:0 auto; max-width:19em}
+.mcard{
+  display:flex; align-items:center; gap:13px; width:100%;
+  background:var(--ink-2); border:1px solid var(--line);
+  border-radius:12px; padding:15px 15px 15px 0; text-align:left;
+  transition:border-color .15s, background .15s;
+}
+.mcard:hover{background:var(--ink-3); border-color:var(--slate)}
+.mcard .acc{width:4px; height:38px; border-radius:0 3px 3px 0; flex:0 0 auto}
+.mcard .mtext{flex:1; min-width:0}
+.mcard b{display:block; font-size:15px; font-weight:500; margin-bottom:2px}
+.mcard em{display:block; font-style:normal; font-size:12px; color:var(--dim); line-height:1.4}
+.mcard .arrow{color:var(--dim); font-size:22px; line-height:1; flex:0 0 auto}
+#btnHome{display:none}
+body:not(.home) #btnHome{display:grid}
+
+#rivals{
+  width:100%; max-width:520px; flex:0 0 auto;
+  display:none; gap:8px; padding:9px 10px; justify-content:center;
+  overflow-x:auto; border-bottom:1px solid var(--line);
+  scrollbar-width:none;
+}
+#rivals::-webkit-scrollbar{display:none}
+#rivals.on{display:flex}
+.pcard{flex:0 0 auto; text-align:center; min-width:40px}
+.pname{font-size:10px; color:var(--dim); margin-bottom:4px; max-width:52px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pcard.me .pname{color:var(--spark)}
+.mini{display:grid; grid-template-columns:repeat(5,var(--cell)); gap:2px; justify-content:center}
+.mini i{width:var(--cell); height:var(--cell); border-radius:1px; background:var(--ink-3); display:block}
+.mini i.correct{background:var(--jade)}
+.mini i.present{background:var(--ochre)}
+.mini i.absent{background:var(--slate)}
+.pstat{font-size:9px; margin-top:4px; color:var(--dim); letter-spacing:.03em}
+.pstat.won{color:var(--jade)}
+.pstat.lost{color:var(--danger)}
+
+main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:0; padding:6px 0}
+#board{display:grid; grid-template-rows:repeat(6,var(--tile)); gap:var(--gap)}
+.row{display:grid; grid-template-columns:repeat(5,var(--tile)); gap:var(--gap)}
+.tile{
+  width:var(--tile); height:var(--tile); border:2px solid var(--line);
+  border-radius:var(--radius); display:grid; place-items:center;
+  font-size:calc(var(--tile)*.48); font-weight:700; text-transform:uppercase;
+  line-height:1; transition:border-color .1s, transform .1s;
+}
+.tile.filled{border-color:var(--ink-3); transform:scale(1.04)}
+.tile.correct{background:var(--jade); border-color:var(--jade); color:#fff}
+.tile.present{background:var(--ochre); border-color:var(--ochre); color:#1a1200}
+.tile.absent{background:var(--slate); border-color:var(--slate); color:#c3c9de}
+.tile.flip{animation:flip .5s ease forwards}
+@keyframes flip{0%{transform:rotateX(0)}50%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+.row.shake{animation:shake .5s}
+@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(4px)}30%,50%,70%{transform:translateX(-7px)}40%,60%{transform:translateX(7px)}}
+.row.win .tile{animation:hop .55s ease}
+@keyframes hop{30%{transform:translateY(-14px)}55%{transform:translateY(3px)}75%{transform:translateY(-4px)}100%{transform:translateY(0)}}
+
+#keyboard{width:100%; max-width:520px; padding:0 5px 8px; flex:0 0 auto; display:flex; flex-direction:column; gap:6px}
+.krow{display:flex; gap:5px; justify-content:center}
+.key{
+  flex:1 1 0; min-width:0; height:clamp(44px,7.2vh,54px);
+  background:var(--ink-3); color:var(--paper); border-radius:6px;
+  font-size:14px; font-weight:500; text-transform:uppercase;
+  display:grid; place-items:center; transition:background .12s, transform .06s; user-select:none;
+}
+.key:active{transform:scale(.94)}
+.key.wide{flex:1.6 1 0; font-size:11px; letter-spacing:.06em}
+.key.correct{background:var(--jade); color:#fff}
+.key.present{background:var(--ochre); color:#1a1200}
+.key.absent{background:#1c2236; color:#5a6285}
+.key svg{width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round}
+
+#toast{
+  position:fixed; top:64px; left:50%; transform:translateX(-50%);
+  background:var(--paper); color:var(--ink); padding:10px 16px;
+  border-radius:6px; font-size:14px; font-weight:500; opacity:0;
+  pointer-events:none; transition:opacity .18s; z-index:60; max-width:88vw; text-align:center;
+}
+#toast.show{opacity:1}
+
+.scrim{position:fixed; inset:0; background:rgba(9,12,22,.72); backdrop-filter:blur(3px); display:none; align-items:center; justify-content:center; padding:16px; z-index:50}
+.scrim.open{display:flex}
+.sheet{background:var(--ink-2); border:1px solid var(--line); border-radius:14px; width:100%; max-width:400px; max-height:86vh; overflow-y:auto; padding:22px 20px 20px; position:relative}
+.sheet h2{margin:0 0 4px; font-size:19px; font-weight:700}
+.sheet p{color:var(--dim); font-size:14px; line-height:1.55; margin:8px 0}
+.sheet .close{position:absolute; top:12px; right:12px; width:30px; height:30px; border-radius:7px; color:var(--dim); display:grid; place-items:center; font-size:20px}
+.sheet .close:hover{background:var(--ink-3); color:var(--paper)}
+.example{display:flex; gap:5px; margin:12px 0 6px}
+.example .tile{--tile:36px; width:36px; height:36px; font-size:17px}
+.legend{font-size:13px; color:var(--dim); line-height:1.5; margin:0 0 14px}
+.legend b{color:var(--paper); font-weight:500}
+.stats{display:flex; gap:6px; margin:16px 0 4px}
+.stat{flex:1; text-align:center; background:var(--ink-3); border-radius:9px; padding:11px 4px}
+.stat .n{font-size:22px; font-weight:700; line-height:1.1}
+.stat .l{font-size:10px; color:var(--dim); margin-top:3px}
+.dist{margin:14px 0 4px}
+.bar{display:flex; align-items:center; gap:7px; margin-bottom:4px; font-size:12px}
+.bar .idx{width:10px; color:var(--dim)}
+.bar .fill{background:var(--slate); border-radius:3px; padding:2px 6px; min-width:26px; text-align:right; font-size:11px; font-weight:500}
+.bar .fill.hot{background:var(--jade); color:#fff}
+.btn{display:block; width:100%; padding:13px; border-radius:9px; font-size:15px; font-weight:500; background:var(--ink-3); color:var(--paper); margin-top:9px; transition:filter .15s}
+.btn:hover{filter:brightness(1.18)}
+.btn.primary{background:var(--jade); color:#fff}
+.btn.ghost{background:transparent; border:1px solid var(--line); color:var(--dim)}
+.btn[disabled]{opacity:.45; cursor:default; filter:none}
+.field{width:100%; padding:13px 14px; margin-top:12px; background:var(--ink); border:1px solid var(--line); border-radius:9px; color:var(--paper); font-family:inherit; font-size:16px}
+.field.spaced{letter-spacing:.22em; text-transform:uppercase}
+.field:focus{outline:none; border-color:var(--spark)}
+.field::placeholder{letter-spacing:normal; text-transform:none; color:#5a6285}
+.hint{font-size:12px; color:var(--dim); margin-top:8px; line-height:1.5}
+.hint.bad{color:var(--danger)}
+.linkbox{background:var(--ink); border:1px solid var(--line); border-radius:9px; padding:11px 12px; margin-top:12px; font-size:12px; color:var(--dim); word-break:break-all; line-height:1.5; max-height:88px; overflow-y:auto}
+.answer-reveal{text-align:center; margin:14px 0 2px; font-size:13px; color:var(--dim)}
+.answer-reveal b{display:block; font-size:26px; color:var(--paper); letter-spacing:.16em; text-transform:uppercase; margin-top:5px}
+.roomcode{
+  text-align:center; background:var(--ink); border:1px dashed var(--line);
+  border-radius:11px; padding:16px; margin:14px 0 6px;
+}
+.roomcode b{display:block; font-size:38px; letter-spacing:.22em; font-weight:700; line-height:1.1}
+.roomcode span{font-size:11px; color:var(--dim)}
+.plist{margin:14px 0 4px}
+.prow{display:flex; align-items:center; justify-content:space-between; padding:9px 12px; background:var(--ink-3); border-radius:8px; margin-bottom:5px; font-size:14px}
+.prow .tagme{font-size:10px; color:var(--spark)}
+.prow .res{font-size:12px; color:var(--dim)}
+.prow.first{background:var(--jade); color:#fff}
+.prow.first .res{color:rgba(255,255,255,.85)}
+.setup{font-size:13px; color:var(--dim); line-height:1.6}
+.setup ol{padding-left:18px; margin:10px 0}
+.setup li{margin-bottom:7px}
+.setup code{background:var(--ink); padding:1px 5px; border-radius:4px; font-size:12px; color:var(--spark); word-break:break-all}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.001ms !important; transition-duration:.001ms !important}}
+@media (max-width:400px){:root{--cell:4px} #rivals{gap:6px; padding:8px 8px} .pcard{min-width:36px} .pname{max-width:44px; font-size:9px}}
+@media (max-height:660px){
+  :root{--tile:clamp(36px,11.5vw,48px); --gap:5px}
+  .key{height:40px}
+  #rivals{padding:6px 12px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>word<span>rush</span></h1>
+    <div class="mode-tag" id="modeTag">Today's word</div>
+  </div>
+  <div class="icons">
+    <button id="btnHome" aria-label="Back to the menu"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 9.6V19a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9.6"/></svg></button>
+    <button id="btnHelp" aria-label="How to play"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.8 2.8 0 1 1 3.4 2.8v1.4"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/></svg></button>
+    <button id="btnRoom" aria-label="Play with friends"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9" r="2.4"/><path d="M15.6 15.4A4.6 4.6 0 0 1 21 19"/></svg></button>
+    <button id="btnChallenge" aria-label="Send a secret word"><svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 15V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/></svg></button>
+    <button id="btnStats" aria-label="Statistics"><svg viewBox="0 0 24 24"><path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/></svg></button>
+  </div>
+</header>
+
+<div id="home">
+  <div class="hero">
+    <div class="herotiles"><i class="correct">w</i><i>o</i><i class="present">r</i><i>d</i><i>s</i></div>
+    <p>Six tries at a five-letter word. Play alone, or race your friends to it.</p>
+  </div>
+  <button class="mcard" data-go="daily">
+    <span class="acc" style="background:var(--jade)"></span>
+    <span class="mtext"><b>Today's word</b><em id="dailyState">Everyone gets the same one</em></span>
+    <span class="arrow">&rsaquo;</span>
+  </button>
+  <button class="mcard" data-go="race">
+    <span class="acc" style="background:var(--spark)"></span>
+    <span class="mtext"><b>Race your friends</b><em>Up to 6 players, same word, live</em></span>
+    <span class="arrow">&rsaquo;</span>
+  </button>
+  <button class="mcard" data-go="secret">
+    <span class="acc" style="background:var(--ochre)"></span>
+    <span class="mtext"><b>Send a secret word</b><em>Pick a word, they guess it</em></span>
+    <span class="arrow">&rsaquo;</span>
+  </button>
+  <button class="mcard" data-go="practice">
+    <span class="acc" style="background:var(--slate)"></span>
+    <span class="mtext"><b>Practice</b><em>A random word, as often as you like</em></span>
+    <span class="arrow">&rsaquo;</span>
+  </button>
+</div>
+
+<div id="rivals"></div>
+<main><div id="board" role="grid" aria-label="Guess board"></div></main>
+<div id="keyboard"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<div class="scrim" id="helpModal"><div class="sheet">
+  <button class="close" data-close aria-label="Close">&times;</button>
+  <h2>How to play</h2>
+  <p>Guess the five-letter word in six tries. The tiles change colour after each guess.</p>
+  <div class="example"><div class="tile correct">s</div><div class="tile">t</div><div class="tile">o</div><div class="tile">r</div><div class="tile">m</div></div>
+  <p class="legend"><b>S</b> is in the word and in the right spot.</p>
+  <div class="example"><div class="tile">p</div><div class="tile present">l</div><div class="tile">a</div><div class="tile">n</div><div class="tile">t</div></div>
+  <p class="legend"><b>L</b> is in the word but somewhere else.</p>
+  <div class="example"><div class="tile">g</div><div class="tile">r</div><div class="tile absent">a</div><div class="tile">v</div><div class="tile">y</div></div>
+  <p class="legend"><b>A</b> is not in the word at all.</p>
+  <p>Tap the two-people icon to open a room and race your friends on the same word at the same time.</p>
+  <button class="btn primary" data-close>Start playing</button>
+</div></div>
+
+<div class="scrim" id="statsModal"><div class="sheet">
+  <button class="close" data-close aria-label="Close">&times;</button>
+  <h2 id="statsTitle">Statistics</h2>
+  <div id="answerReveal"></div>
+  <div id="raceResult"></div>
+  <div id="soloStats">
+    <div class="stats">
+      <div class="stat"><div class="n" id="stPlayed">0</div><div class="l">Played</div></div>
+      <div class="stat"><div class="n" id="stWin">0</div><div class="l">Win %</div></div>
+      <div class="stat"><div class="n" id="stStreak">0</div><div class="l">Streak</div></div>
+      <div class="stat"><div class="n" id="stBest">0</div><div class="l">Best</div></div>
+    </div>
+    <div class="dist" id="dist"></div>
+  </div>
+  <button class="btn primary" id="btnShare">Copy my result</button>
+  <button class="btn" id="btnNextRound">Play a random word</button>
+</div></div>
+
+<div class="scrim" id="challengeModal"><div class="sheet">
+  <button class="close" data-close aria-label="Close">&times;</button>
+  <h2>Send a secret word</h2>
+  <p>Pick any five-letter word. We'll hide it inside a link — whoever opens it has to guess it.</p>
+  <input class="field spaced" id="secretWord" maxlength="5" placeholder="Type your secret word" autocomplete="off" autocapitalize="characters" spellcheck="false">
+  <div class="hint" id="challengeHint">The word is hidden in the link, so it won't spoil it.</div>
+  <div class="linkbox" id="linkBox" style="display:none"></div>
+  <button class="btn primary" id="btnMakeLink">Create the link</button>
+  <button class="btn ghost" id="btnCopyLink" style="display:none">Copy link</button>
+  <button class="btn" id="btnBackDaily">Back to today's word</button>
+</div></div>
+
+<div class="scrim" id="roomModal"><div class="sheet" id="roomSheet"></div></div>
+
+<script>
+/* ==========================================================================
+   WORDRUSH
+   Solo modes work with no setup at all.
+   Live rooms need a Firebase Realtime Database — paste the config below.
+   ========================================================================== */
+
+const FIREBASE_CONFIG = {
+  // Connected to your Firebase Realtime Database.
+  databaseURL: "https://wordlytest-9698b-default-rtdb.europe-west1.firebasedatabase.app"
+};
+const FIREBASE_VERSION = "12.8.0";
+
+/* ---------- word lists ---------- */
+const ANSWERS = ("about above actor acute admit adopt adult after again agent agree ahead alarm album alert alike alive allow alone along alter among anger angle angry ankle apart apple apply arena argue arise armor aroma arrow aside asset avoid awake award aware badge baker basic basin batch beach beard beast begin being belly below bench berry birth black blade blame blank blast blaze bleak blend bless blind block blood bloom board boast bonus boost booth bound brain brand brave bread break breed brick bride brief bring broad brown brush build bunch burst cabin cable camel canal candy canoe cargo carry carve catch cause cease chain chair chalk charm chart chase cheap cheek cheer chess chest chief child chose chunk claim clash clean clear clerk click cliff climb clock close cloth cloud coach coast count court cover crack craft crane crash crawl crazy cream crisp cross crowd crown crude cruel crush curve cycle daily dairy dance death debut decay delay dense depth dirty dodge doubt dozen draft drain drama dream dress drift drink drive eager eagle early earth eight elbow elder empty enemy enjoy enter entry equal error essay event every exact exist extra faith false fancy fault favor feast fence fever fiber field fiery fifty fight final first flame flash fleet flesh flint float flood floor flour fluid flush focus force forge forth found frame fraud fresh front frost fruit funny giant given glass gleam globe glory glove grace grade grain grand grant grape graph grasp grass grave great greed green greet grief grill grind groan group grove guard guess guest guide habit happy harsh haste hatch haunt heart heavy hedge hobby honey honor horse hotel house human humor hurry ideal image imply index inner input irony issue ivory joint judge juice knife knock known label labor latch large laser later laugh layer learn lease least leave legal lemon level lever light limit linen liver lobby local lodge logic loose lower loyal lucky lunar lunch magic major maker maple march marsh match maybe mayor meant medal media melon mercy merge merit metal meter midst might minor minus mirth mixed model moist money month moral motor mount mouse mouth movie music naked nasty nerve never newly night noble noise north notch novel nurse ocean offer often olive onion order organ other ought ounce outer owner paint panel panic paper party pasta patch pause peace pearl pedal penny perch photo piano piece pilot pinch pitch pivot plain plane plant plate plaza plumb point polar porch pound power press price pride prime print prize probe proof proud prove pulse punch pupil puppy purse queen query quest queue quick quiet quilt quite quote radar radio raise rally ranch range rapid ratio razor reach ready realm rebel refer reign relax relay renew reply rider ridge rifle right rigid rinse risky rival river roast robot rocky roman rough round route royal rugby ruler rumor rural sadly saint salad salon sandy sauce scale scare scarf scene scent scoop scope score scout screw sense serve seven shade shaft shake shall shame shape share sharp sheep sheet shelf shell shift shine shirt shock shoot shore short shout shown shrug sight silly since siren sixty skill skirt slate sleep slice slide slope small smart smile smoke snake sneak solar solid solve sorry sound south space spare spark speak spear speed spell spend spice spike spine spite split spoke spoon sport spray squad staff stage stain stair stake stamp stand stare start state steam steel steep steer stern stick stiff still sting stock stone stool store storm story stove strap straw strip study stuff style sugar suite sunny super surge sweat sweep sweet swift swing sword table taken taste teach teeth tempo tenor tense thank theft their theme there thick thief thing think third thorn those three throw thumb tiger tight timer tired title toast today token tooth topic torch total touch tough towel tower toxic trace track trade trail train trait tramp trash treat trend trial tribe trick tried tulip twice twist ultra uncle under union unite unity until upper upset urban usage usual vague valid value vapor vault venue verse video vigor villa vinyl virus visit vital vivid vocal voice voter wagon waist waste watch water weary weave wedge weigh weird whale wheat wheel where which while white whole whose widow width witch woman world worry worse worst worth would wound wrist write wrong yield young youth zebra").split(" ");
+
+const EXTRA = ("abbey abide abort abuse acorn adapt adept adore afoot afire agile aglow aisle alias align alley allot aloft aloud amber amble amend ample amuse angel apron ardor arson artsy ascot atlas attic audio audit avail avert awful axiom bacon badly bagel baggy balmy banjo barge baron basil baste bathe bayou beady beget begun belie berth bevel bible bicep bigot billy binge birch bison blare bliss bloat blond blown bluff blunt blurt blush bogus bonny booze borne bosom botch bough brace braid brake brash brawl bream bribe brine brink briny brisk broil brood brook broom broth brute buddy budge buggy bugle bulge bulky bully bumpy bunny burly burnt bushy butte buyer byway cadet cagey cameo campy canny caper carat cared cater cavil cedar chafe chaff champ chant chaos chard cheat chide chili chill chime chirp choir choke chord chore chuck churn cider cigar cinch circa civic civil clamp clang clank clasp cleat cleft clump clung cocoa cocky colon color combo comet comic comma condo coral corny couch cough coupe covet cower cramp crank crate crave craze creak creed creek creep crept crest cried crimp croak crock croft crony crook croup crumb crypt cubic cumin cupid curio curly curry curse cyber daisy dandy dared dater datum daunt dealt debit decal decor decoy deity delta demon demur denim derby deter devil diary dicey digit dimly diner dingy ditch ditto dizzy donor donut dowel downy dowry drape drawl drawn dread dregs dried drier droll drone drool droop dross drove drown drunk dryer dryly ducal dully dummy dumpy dunce dusky dusty dutch dwarf dwell dwelt dying eaten ebony eclat edict edify eerie egret eject elate elect elegy elfin elide elite elope elude elves ember emcee emend emery emote enact endow enrol ensue envoy epoch epoxy equip erase erect erode erupt ethic ethos evade evict evoke exalt excel exert exile expel extol exult fable faced facet faded faint fairy faker fatal fated fatty fauna feign feint felon femur feral ferry fetal fetch fetid fetus fiend fifth filch filet filly filmy filth finch finer fixed fizzy fjord flack flail flair flake flaky flank flare flask fleck flick flier fling flirt flock flora floss flown fluff fluke flume flung flunk flute flyer foamy focal foggy foist folio folly foray forte forty forum foyer frail franc frank freak freed freer frisk frizz frock frond frown froze fudge fugue funky furor furry fussy fusty futon fuzzy gable gaily gamer gamut gassy gauge gaunt gauze gavel gawky gayly gazer gecko geese gelid genie genre ghost ghoul girly girth giver gizmo glade gland glare glaze glide glint gloat gloom gloss gluts gnash gnome godly gonad goner gooey goofy goose gorge gouge gourd grail grate gravy graze grimy gripe groin groom grope gross grout growl gruel gruff grunt guava guile guilt guise gulch gully gumbo gummy gusto gusty gutsy gypsy hairy halve handy hardy harem harpy haven havoc hazel heady heard hefty heist hello hence heron hilly hinge hippo hitch hoard hoary hoist holly homer honed hooky horde hound hovel hover howdy humid hunch husky hussy hutch hydro hyena hyper icily icing idiom idiot idler idyll igloo iliac inane inapt incur inept inert infer ingot inlet inter intro inure irate irked islet itchy jaded jaunt jazzy jelly jerky jetty jewel jiffy jingo joker jolly joust jowls juicy jumbo jumpy junky junta juror kappa karma kayak kebab kempt keyed khaki kiosk kitty knack knave knead kneel knelt knoll knurl koala kudos kudzu laden ladle lager lance lanky lapel lapse larva lasso lathe latte leaky leant leapt ledge leech leery lefty legit lemur leper libel liege liken lilac limbo limes liner lingo lisle lithe livid llama loamy loath lofty loner loony loopy loris louse lousy lucid luger lumen lumpy lunge lupus lurch lurid lusty lying lyric macaw macho macro madam madly magma maize mambo mamma mange mango mangy mania manic manly manor marry mason masse matey mauve maxim mealy meaty mecca medic melee messy metro micro midge miner minim minty miser modal modem mogul moldy molly moody moose moped mopey morph mossy motel motif motto mould mound mourn mousy mucky mucus muddy mulch mummy mumps munch mural murky mushy musky musty muted myrrh nacho nadir naive nanny nasal natal naval navel needy neigh nerdy newer niche niece nifty ninja ninth nippy nitro nomad nosey noted nudge nutty nylon nymph oaken oasis obese occur ocher octal octet odder odium offal olden older omega onset opera opine opium optic opted orbit orate osier ouzel ovary overt ovine owing owlet oxide ozone paced padre paean pagan pager palsy pansy papal parch parer parka parry parse pasty patio patsy patty payer peach pecan peers pekoe penal perky pesky pesto petal petty phase phone phony piety pilaf piled pinky pious piper pique pithy pixel pizza place plaid plait plank plead pleat plied pluck plume plump plunk plush poesy poise poker polka polyp pooch poppy poser posit posse pouch pouty prank prawn preen prick primp prism privy prone prong props prose prowl proxy prude prune psalm pubic pudgy puffy pukka pulpy puree purge pushy pygmy quack quail quake qualm quark quash quasi quell quill quirk quota quoth rabbi rabid racer radii rainy raked ramen randy raspy ratty raven rayon reams reaps rearm rebar rebus rebut recap recut redid redox refit regal rehab relic remit remix renal rerun reset resin retch retro reuse revel revue rhino rhyme rigor riled riper risen ritzy roach robin rodeo rogue roomy roost rotor rouge rouse rover rowdy rower ruddy ruder ruled rumba rummy runny runic rupee rusty saber sable safer sagas saggy salsa salty salve sappy sassy satin satyr sauna saved savor savvy scald scalp scaly scamp scant scary scoff scold scone scoot scorn scour scowl scrap scrub scrum scuba sedan seedy seize semen sepia sepal serif serum sever sewer shady shale shard shear sheen sheik shied shiny shire shirk shoal shorn shove shrew shrub shuck shunt shush shyly siege sieve sigma silky silty sinew singe sissy sitar sixth sized skate skiff skimp skulk skull skunk slack slain slang slant slash slave sleek sleet slept slick slime slimy sling slink sloop slosh sloth slump slung slunk slurp slush slyly smack smash smear smelt smirk smite smith smock smoky smote snack snail snare snarl snide snipe snoop snore snort snout snowy snuff soapy sober soggy sonar sonic sooth sooty soppy sorta souse sowed spade spank spasm spawn spelt spent sperm spied spiel spiky spill spilt spiny spire splat splay spoil spoof spool spore spout sprig spurn spurt squat squib stack stale stalk stall stank stave stead steak stein stilt stint stoic stoke stole stomp stony stood stoop stork stout strep strut stump stung stunk stunt suave sudsy sulky sully sumac sunup surly sushi swami swamp swash swath swear swell swept swirl swish swoon swoop syrup tabby taboo tacit tacky taffy taint talon tamer tango tangy tapir tardy tarot tasty tatty taunt tawny teary tease techy teddy tepid terse testy thump thyme tibia tidal tided tilde timid tinge tipsy titan tithe toady togas toile tonal tonic torso torus totem toter touts towed toxin trawl triad tripe trite troll troop trope trout truce truck truly trump trunk truss trust truth tryst tubal tuber tulle tumid tummy tumor tunic turbo tutor tweak tweed tweet twine twirl twixt tying udder uncut undue unfed unfit unify unlit unmet unset unwed upend urine usher usurp utile utter vague valet valor valve vapid vaunt veiny velum venom verge verve vicar vigil viola viper viral visor vixen vodka vogue vomit vouch vowel vying wacky wafer waged wager waltz warty washy waspy wasps watts weedy welsh whack wharf whelp whiff whine whiny whirl whisk whist whoop whorl wield wince winch windy wiper wired wispy witty wooer woozy wordy woven wrack wrath wreak wreck wrest wring wrote wryly yacht yearn yeast yodel yoked yokel yucca yummy zesty zonal").split(" ");
+
+const DICT = new Set([...ANSWERS, ...EXTRA].filter(w => /^[a-z]{5}$/.test(w)));
+const MAX_ROWS = 6, LEN = 5;
+const MAX_PLAYERS = 6;
+
+/* ---------- storage that never throws ---------- */
+const store = (() => {
+  const mem = {}; let ok = true;
+  try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); } catch (e) { ok = false; }
+  return {
+    get(k) { try { return ok ? localStorage.getItem(k) : (mem[k] ?? null); } catch (e) { return mem[k] ?? null; } },
+    set(k, v) { try { ok ? localStorage.setItem(k, v) : (mem[k] = v); } catch (e) { mem[k] = v; } }
+  };
+})();
+
+/* ---------- word selection ---------- */
+function dayNumber() {
+  const n = new Date();
+  return Math.floor((Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()) - Date.UTC(2026, 0, 1)) / 86400000);
+}
+function dailyWord() {
+  const d = dayNumber();
+  return ANSWERS[((d * 7919) % ANSWERS.length + ANSWERS.length) % ANSWERS.length];
+}
+function randomWord() { return ANSWERS[Math.floor(Math.random() * ANSWERS.length)]; }
+function encodeWord(w) { return btoa(w.toLowerCase().split("").reverse().join("")).replace(/=+$/, ""); }
+function decodeWord(c) {
+  try { return atob(c + "===".slice((c.length + 3) % 4)).split("").reverse().join("").toLowerCase(); }
+  catch (e) { return null; }
+}
+
+/* ---------- game state ---------- */
+let mode = "daily";
+let target = dailyWord();
+let rows = [], guessLog = [], cur = "", row = 0, done = false, busy = false;
+
+const boardEl = document.getElementById("board");
+const kbEl = document.getElementById("keyboard");
+const toastEl = document.getElementById("toast");
+const modeTag = document.getElementById("modeTag");
+const rivalsEl = document.getElementById("rivals");
+
+function buildBoard() {
+  boardEl.innerHTML = "";
+  for (let r = 0; r < MAX_ROWS; r++) {
+    const d = document.createElement("div");
+    d.className = "row";
+    for (let c = 0; c < LEN; c++) d.appendChild(Object.assign(document.createElement("div"), { className: "tile" }));
+    boardEl.appendChild(d);
+  }
+}
+const KEYS = ["q w e r t y u i o p".split(" "), "a s d f g h j k l".split(" "), ["ENTER", ..."z x c v b n m".split(" "), "DEL"]];
+function buildKeyboard() {
+  kbEl.innerHTML = "";
+  KEYS.forEach(ks => {
+    const r = document.createElement("div");
+    r.className = "krow";
+    ks.forEach(k => {
+      const b = document.createElement("button");
+      b.className = "key" + (k.length > 1 ? " wide" : "");
+      b.dataset.key = k;
+      if (k === "DEL") { b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M20 6H9l-5 6 5 6h11a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1z"/><path d="M17 10l-4 4M13 10l4 4"/></svg>'; b.setAttribute("aria-label", "Delete"); }
+      else b.textContent = k === "ENTER" ? "Enter" : k;
+      b.addEventListener("click", () => press(k));
+      r.appendChild(b);
+    });
+    kbEl.appendChild(r);
+  });
+}
+function toast(msg, ms = 1700) {
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => toastEl.classList.remove("show"), ms);
+}
+
+/* ---------- scoring (handles repeated letters) ---------- */
+function score(guess, answer) {
+  const res = new Array(LEN).fill("absent"), left = {};
+  for (let i = 0; i < LEN; i++) {
+    if (guess[i] === answer[i]) res[i] = "correct";
+    else left[answer[i]] = (left[answer[i]] || 0) + 1;
+  }
+  for (let i = 0; i < LEN; i++) {
+    if (res[i] === "correct") continue;
+    if (left[guess[i]] > 0) { res[i] = "present"; left[guess[i]]--; }
+  }
+  return res;
+}
+const CODE = { correct: "c", present: "p", absent: "a" };
+const UNCODE = { c: "correct", p: "present", a: "absent" };
+const packRow = r => r.map(s => CODE[s]).join("");
+
+function paintRow() {
+  const t = boardEl.children[row].children;
+  for (let i = 0; i < LEN; i++) {
+    t[i].textContent = cur[i] || "";
+    t[i].classList.toggle("filled", !!cur[i]);
+  }
+}
+const RANK = { absent: 0, present: 1, correct: 2 };
+function paintKey(letter, state) {
+  const b = kbEl.querySelector('[data-key="' + letter + '"]');
+  if (!b) return;
+  if (b.dataset.state && RANK[b.dataset.state] >= RANK[state]) return;
+  b.dataset.state = state;
+  b.classList.remove("correct", "present", "absent");
+  b.classList.add(state);
+}
+
+function press(k) {
+  if (done || busy) return;
+  if (mode === "race" && mp && mp.status !== "playing") { toast("Waiting for the round to start"); return; }
+  if (k === "ENTER") return submit();
+  if (k === "DEL") { cur = cur.slice(0, -1); paintRow(); return; }
+  if (!/^[a-z]$/.test(k) || cur.length >= LEN) return;
+  cur += k; paintRow();
+}
+
+function submit() {
+  if (cur.length < LEN) return shake("Needs five letters");
+  if (!DICT.has(cur) && cur !== target) return shake("Not in the word list");
+
+  busy = true;
+  const guess = cur;
+  const res = score(guess, target);
+  const tiles = boardEl.children[row].children;
+
+  res.forEach((state, i) => setTimeout(() => {
+    tiles[i].classList.add("flip");
+    setTimeout(() => { tiles[i].classList.add(state); paintKey(guess[i], state); }, 250);
+  }, i * 170));
+
+  rows.push(res);
+  guessLog.push(guess);
+  const won = guess === target;
+  const last = row === MAX_ROWS - 1;
+
+  setTimeout(() => {
+    busy = false;
+    if (won || last) {
+      done = true;
+      if (won) boardEl.children[row].classList.add("win");
+      if (mode === "daily") record(won, rows.length);
+      if (mode === "race") pushProgress(true, won);
+      setTimeout(() => openStats(true), won ? 1300 : 900);
+    } else {
+      row++; cur = "";
+      if (mode === "race") pushProgress(false, false);
+    }
+    saveDaily();
+  }, LEN * 170 + 350);
+}
+function shake(msg) {
+  toast(msg);
+  const r = boardEl.children[row];
+  r.classList.add("shake");
+  setTimeout(() => r.classList.remove("shake"), 500);
+}
+
+/* ---------- daily progress ---------- */
+const dayKey = () => "wr_day_" + dayNumber();
+function saveDaily() {
+  if (mode !== "daily") return;
+  store.set(dayKey(), JSON.stringify({ guesses: guessLog, done }));
+}
+function restoreDaily() {
+  if (mode !== "daily") return;
+  const raw = store.get(dayKey());
+  if (!raw) return;
+  try {
+    const s = JSON.parse(raw);
+    (s.guesses || []).forEach(g => {
+      const res = score(g, target), t = boardEl.children[row].children;
+      for (let i = 0; i < LEN; i++) {
+        t[i].textContent = g[i];
+        t[i].classList.add("filled", res[i]);
+        paintKey(g[i], res[i]);
+      }
+      rows.push(res); guessLog.push(g);
+      if (g === target || row === MAX_ROWS - 1) done = true; else row++;
+    });
+  } catch (e) { /* ignore a corrupt save */ }
+}
+
+/* ---------- solo stats ---------- */
+const blankStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0], lastDay: null });
+function readStats() { try { return JSON.parse(store.get("wr_stats")) || blankStats(); } catch (e) { return blankStats(); } }
+function record(won, tries) {
+  const s = readStats();
+  if (s.lastDay === dayNumber()) return;
+  s.played++;
+  if (won) {
+    s.wins++; s.dist[tries - 1]++;
+    s.streak = (s.lastDay === dayNumber() - 1) ? s.streak + 1 : 1;
+    s.best = Math.max(s.best, s.streak);
+  } else s.streak = 0;
+  s.lastDay = dayNumber();
+  store.set("wr_stats", JSON.stringify(s));
+}
+
+const solved = () => done && rows.length > 0 && rows[rows.length - 1].every(x => x === "correct");
+
+function openStats(isResult) {
+  const s = readStats();
+  document.getElementById("stPlayed").textContent = s.played;
+  document.getElementById("stWin").textContent = s.played ? Math.round(s.wins / s.played * 100) : 0;
+  document.getElementById("stStreak").textContent = s.streak;
+  document.getElementById("stBest").textContent = s.best;
+  const max = Math.max(1, ...s.dist);
+  document.getElementById("dist").innerHTML = s.dist.map((n, i) =>
+    `<div class="bar"><div class="idx">${i + 1}</div><div class="fill ${solved() && rows.length === i + 1 ? "hot" : ""}" style="width:${Math.max(9, Math.round(n / max * 100))}%">${n}</div></div>`
+  ).join("");
+
+  const title = document.getElementById("statsTitle");
+  const reveal = document.getElementById("answerReveal");
+  const race = document.getElementById("raceResult");
+  const soloBox = document.getElementById("soloStats");
+  const nextBtn = document.getElementById("btnNextRound");
+
+  soloBox.style.display = mode === "race" ? "none" : "block";
+  race.innerHTML = mode === "race" ? raceTable() : "";
+  nextBtn.textContent = mode === "race"
+    ? (mp && mp.isHost ? "Start a new round" : "Waiting for the host")
+    : "Play a random word";
+  nextBtn.disabled = mode === "race" && !(mp && mp.isHost);
+
+  if (isResult) {
+    title.textContent = solved() ? "Solved it" : "Out of guesses";
+    reveal.innerHTML = solved()
+      ? `<div class="answer-reveal">${rows.length} of 6 guesses<b>${target}</b></div>`
+      : `<div class="answer-reveal">The word was<b>${target}</b></div>`;
+  } else {
+    title.textContent = mode === "race" ? "The race" : "Statistics";
+    reveal.innerHTML = "";
+  }
+  openModal("statsModal");
+}
+
+function shareText() {
+  const head = mode === "daily" ? "Wordrush " + dayNumber() : "Wordrush";
+  const grid = rows.map(r => r.map(s => s === "correct" ? "🟩" : s === "present" ? "🟨" : "⬛").join("")).join("\n");
+  return `${head} ${solved() ? rows.length : "X"}/6\n\n${grid}`;
+}
+async function copy(text, okMsg) {
+  try { await navigator.clipboard.writeText(text); toast(okMsg); }
+  catch (e) {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast(okMsg); } catch (e2) { toast("Couldn't copy — select the text instead"); }
+    document.body.removeChild(ta);
+  }
+}
+
+/* ---------- modals ---------- */
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeAll() { document.querySelectorAll(".scrim").forEach(s => s.classList.remove("open")); }
+document.addEventListener("click", e => {
+  if (e.target.matches("[data-close]")) closeAll();
+  if (e.target.classList.contains("scrim")) closeAll();
+});
+document.getElementById("btnHelp").onclick = () => openModal("helpModal");
+document.getElementById("btnStats").onclick = () => openStats(false);
+document.getElementById("btnShare").onclick = () => copy(shareText(), "Result copied — paste it to your friends");
+document.getElementById("btnChallenge").onclick = () => {
+  document.getElementById("linkBox").style.display = "none";
+  document.getElementById("btnCopyLink").style.display = "none";
+  openModal("challengeModal");
+  setTimeout(() => document.getElementById("secretWord").focus(), 120);
+};
+document.getElementById("btnNextRound").onclick = () => {
+  if (mode === "race") { if (mp && mp.isHost) newRound(); return; }
+  location.hash = "";
+  startFresh("practice", randomWord());
+  closeAll();
+};
+document.getElementById("btnBackDaily").onclick = () => {
+  leaveRoom();
+  location.hash = "";
+  startFresh("daily", dailyWord());
+  restoreDaily();
+  closeAll();
+};
+
+const secretInput = document.getElementById("secretWord");
+const hintEl = document.getElementById("challengeHint");
+secretInput.oninput = () => {
+  secretInput.value = secretInput.value.replace(/[^a-zA-Z]/g, "").toLowerCase();
+  hintEl.className = "hint";
+  hintEl.textContent = "The word is hidden in the link, so it won't spoil it.";
+};
+document.getElementById("btnMakeLink").onclick = () => {
+  const w = secretInput.value.trim().toLowerCase();
+  if (w.length !== LEN) { hintEl.textContent = "Your word needs to be exactly five letters."; hintEl.className = "hint bad"; return; }
+  const url = location.origin + location.pathname + "#c=" + encodeWord(w);
+  const box = document.getElementById("linkBox");
+  box.textContent = url; box.style.display = "block";
+  const cp = document.getElementById("btnCopyLink");
+  cp.style.display = "block";
+  cp.onclick = () => copy(url, "Link copied — send it to your friend");
+  hintEl.textContent = "Send this link. Whoever opens it gets six tries at your word.";
+  hintEl.className = "hint";
+};
+
+window.addEventListener("keydown", e => {
+  if (document.querySelector(".scrim.open")) { if (e.key === "Escape") closeAll(); return; }
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "Enter") press("ENTER");
+  else if (e.key === "Backspace") press("DEL");
+  else if (/^[a-zA-Z]$/.test(e.key)) press(e.key.toLowerCase());
+});
+
+/* ==========================================================================
+   LIVE ROOMS
+   ========================================================================== */
+let mp = null;   // { db, fns, code, pid, name, isHost, status, players }
+let fb = null;   // loaded Firebase module functions
+
+const myId = (() => {
+  let id = store.get("wr_pid");
+  if (!id) { id = Math.random().toString(36).slice(2, 10); store.set("wr_pid", id); }
+  return id;
+})();
+let DB_URL = FIREBASE_CONFIG.databaseURL || store.get("wr_dburl") || "";
+const configured = () => /^https:\/\/\S+\.(firebaseio\.com|firebasedatabase\.app)\/?$/.test(DB_URL);
+const newCode = () => Array.from({ length: 4 }, () => "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 32)]).join("");
+
+async function loadFirebase() {
+  if (fb) return fb;
+  const base = "https://www.gstatic.com/firebasejs/" + FIREBASE_VERSION + "/";
+  const app = await import(base + "firebase-app.js");
+  const db = await import(base + "firebase-database.js");
+  const inst = db.getDatabase(app.initializeApp({ databaseURL: DB_URL }));
+  fb = { db: inst, ...db };
+  return fb;
+}
+
+const roomSheet = document.getElementById("roomSheet");
+document.getElementById("btnRoom").onclick = () => { renderRoom(); openModal("roomModal"); };
+
+function renderRoom() {
+  if (!configured()) return renderSetup();
+  if (mp && mp.code) return renderLobby();
+  roomSheet.innerHTML = `
+    <button class="close" data-close aria-label="Close">&times;</button>
+    <h2>Play with friends</h2>
+    <p>Open a room, share the code, and everyone races the same word at the same moment.</p>
+    <input class="field" id="pname" maxlength="12" placeholder="Your name" autocomplete="off" value="${(store.get("wr_name") || "").replace(/"/g, "")}">
+    <button class="btn primary" id="doCreate">Open a room</button>
+    <div style="display:flex; gap:8px; align-items:flex-end">
+      <input class="field spaced" id="joinCode" maxlength="4" placeholder="Code" autocomplete="off" style="flex:1">
+      <button class="btn" id="doJoin" style="flex:1; margin-top:12px">Join</button>
+    </div>
+    <div class="hint" id="roomHint"></div>`;
+  const codeInput = document.getElementById("joinCode");
+  codeInput.oninput = () => codeInput.value = codeInput.value.replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+  document.getElementById("doCreate").onclick = () => createRoom();
+  document.getElementById("doJoin").onclick = () => joinRoom(codeInput.value.trim().toUpperCase());
+  const hash = new URLSearchParams(location.hash.replace(/^#/, "")).get("r");
+  if (hash) codeInput.value = hash.toUpperCase();
+}
+
+function renderSetup() {
+  roomSheet.innerHTML = `
+    <button class="close" data-close aria-label="Close">&times;</button>
+    <h2>Connect your database</h2>
+    <div class="setup">
+      <p>One paste and live rooms turn on. Your friends won't have to do this — the invite link carries it for them.</p>
+      <ol>
+        <li>Open <code>console.firebase.google.com</code> in another tab.</li>
+        <li>Go to <b>Build &rarr; Realtime Database</b>. Create one in <b>test mode</b> if you haven't.</li>
+        <li>Copy the URL shown at the top of the data view.</li>
+      </ol>
+    </div>
+    <input class="field" id="dbUrl" placeholder="https://your-project-default-rtdb..." autocomplete="off" autocapitalize="off" spellcheck="false" value="${escapeHtml(DB_URL)}">
+    <div class="hint" id="dbHint">It ends in .firebaseio.com or .firebasedatabase.app</div>
+    <button class="btn primary" id="saveDb">Save and continue</button>`;
+  document.getElementById("saveDb").onclick = () => {
+    const v = document.getElementById("dbUrl").value.trim().replace(/\/+$/, "");
+    const hint = document.getElementById("dbHint");
+    if (!/^https:\/\/\S+\.(firebaseio\.com|firebasedatabase\.app)$/.test(v)) {
+      hint.className = "hint bad";
+      hint.textContent = "That doesn't look like a Realtime Database URL. Copy the whole thing, starting with https://";
+      return;
+    }
+    DB_URL = v;
+    store.set("wr_dburl", v);
+    fb = null;
+    renderRoom();
+  };
+}
+
+function roomRef(path) { return fb.ref(fb.db, path); }
+
+async function createRoom() {
+  const name = (document.getElementById("pname").value || "Player").trim().slice(0, 12);
+  store.set("wr_name", name);
+  const hint = document.getElementById("roomHint");
+  hint.className = "hint"; hint.textContent = "Opening the room…";
+  try {
+    await loadFirebase();
+    let code = newCode();
+    for (let i = 0; i < 5; i++) {
+      const snap = await fb.get(roomRef("rooms/" + code));
+      if (!snap.exists()) break;
+      code = newCode();
+    }
+    await fb.set(roomRef("rooms/" + code), {
+      word: randomWord(), hostId: myId, status: "waiting",
+      round: 1, createdAt: Date.now(),
+      players: { [myId]: { name, rows: [], done: false, solved: false, joinedAt: Date.now() } }
+    });
+    mp = { code, pid: myId, name, isHost: true, status: "waiting", players: {} };
+    watchRoom();
+    renderLobby();
+  } catch (e) {
+    hint.className = "hint bad";
+    hint.textContent = "Couldn't reach the database. Check the config and that the database rules allow writing.";
+  }
+}
+
+async function joinRoom(code) {
+  const hint = document.getElementById("roomHint");
+  if (!/^[A-Z0-9]{4}$/.test(code)) { hint.className = "hint bad"; hint.textContent = "A room code is four characters."; return; }
+  const name = (document.getElementById("pname").value || "Player").trim().slice(0, 12);
+  store.set("wr_name", name);
+  hint.className = "hint"; hint.textContent = "Joining…";
+  try {
+    await loadFirebase();
+    const snap = await fb.get(roomRef("rooms/" + code));
+    if (!snap.exists()) { hint.className = "hint bad"; hint.textContent = "No room with that code. Check it with your friend."; return; }
+    const existing = snap.val().players || {};
+    if (!existing[myId] && Object.keys(existing).length >= MAX_PLAYERS) {
+      hint.className = "hint bad";
+      hint.textContent = `That room is full — ${MAX_PLAYERS} players is the limit. Start a second room.`;
+      return;
+    }
+    await fb.set(roomRef(`rooms/${code}/players/${myId}`), { name, rows: [], done: false, solved: false, joinedAt: Date.now() });
+    mp = { code, pid: myId, name, isHost: snap.val().hostId === myId, status: snap.val().status, players: {} };
+    watchRoom();
+    renderLobby();
+  } catch (e) {
+    hint.className = "hint bad";
+    hint.textContent = "Couldn't join. Check your connection and the database rules.";
+  }
+}
+
+function watchRoom() {
+  if (mp.unsub) mp.unsub();
+  mp.unsub = fb.onValue(roomRef("rooms/" + mp.code), snap => {
+    const r = snap.val();
+    if (!r) { toast("The room was closed"); leaveRoom(); return; }
+    const wasStatus = mp.status;
+    const wasRound = mp.round;
+    mp.status = r.status;
+    mp.round = r.round;
+    mp.players = r.players || {};
+    mp.isHost = r.hostId === myId;
+
+    if (r.status === "playing" && (wasStatus !== "playing" || wasRound !== r.round)) {
+      startFresh("race", r.word);
+      closeAll();
+      toast("Go!", 900);
+    }
+    if (document.getElementById("roomModal").classList.contains("open")) renderLobby();
+    if (document.getElementById("statsModal").classList.contains("open") && mode === "race") {
+      document.getElementById("raceResult").innerHTML = raceTable();
+    }
+    drawRivals();
+  });
+}
+
+async function startMatch() {
+  const updates = { status: "playing", word: randomWord(), startedAt: Date.now() };
+  Object.keys(mp.players).forEach(pid => {
+    updates[`players/${pid}/rows`] = [];
+    updates[`players/${pid}/done`] = false;
+    updates[`players/${pid}/solved`] = false;
+    updates[`players/${pid}/finishedAt`] = null;
+  });
+  await fb.update(roomRef("rooms/" + mp.code), updates);
+}
+async function newRound() {
+  await fb.update(roomRef("rooms/" + mp.code), { round: (mp.round || 1) + 1 });
+  await startMatch();
+}
+async function pushProgress(finished, won) {
+  if (!mp || !fb) return;
+  try {
+    await fb.update(roomRef(`rooms/${mp.code}/players/${myId}`), {
+      rows: rows.map(packRow),
+      done: !!finished,
+      solved: !!won,
+      finishedAt: finished ? Date.now() : null
+    });
+  } catch (e) { /* a dropped update just means their view lags a moment */ }
+}
+function leaveRoom() {
+  if (mp) {
+    if (mp.unsub) mp.unsub();
+    if (fb) fb.remove(roomRef(`rooms/${mp.code}/players/${myId}`)).catch(() => {});
+  }
+  mp = null;
+  rivalsEl.classList.remove("on");
+  rivalsEl.innerHTML = "";
+  document.getElementById("btnRoom").classList.remove("live");
+}
+
+function renderLobby() {
+  const players = Object.entries(mp.players || {});
+  const link = location.origin + location.pathname + "#r=" + mp.code + "&db=" + encodeURIComponent(DB_URL);
+  roomSheet.innerHTML = `
+    <button class="close" data-close aria-label="Close">&times;</button>
+    <h2>Room ${mp.code}</h2>
+    <div class="roomcode"><b>${mp.code}</b><span>Your friends type this code to join &middot; ${players.length} of ${MAX_PLAYERS} players</span></div>
+    <button class="btn ghost" id="copyInvite">Copy the invite link</button>
+    <div class="plist">${players.length ? players.map(([pid, p]) =>
+      `<div class="prow"><span>${escapeHtml(p.name)} ${pid === myId ? '<span class="tagme">you</span>' : ""}</span>
+       <span class="res">${p.done ? (p.solved ? (p.rows || []).length + "/6" : "missed") : "ready"}</span></div>`
+    ).join("") : '<p>Nobody has joined yet.</p>'}</div>
+    ${mp.isHost
+      ? `<button class="btn primary" id="startBtn">${mp.status === "playing" ? "Restart the round" : "Start the race"}</button>`
+      : `<p>${mp.status === "playing" ? "Round in progress." : "Waiting for the host to start."}</p>`}
+    <button class="btn" id="leaveBtn">Leave the room</button>`;
+  document.getElementById("copyInvite").onclick = () => copy(link, "Invite copied — send it to your friends");
+  const sb = document.getElementById("startBtn");
+  if (sb) sb.onclick = () => { if (mp.status === "playing") newRound(); else startMatch(); };
+  document.getElementById("leaveBtn").onclick = () => {
+    leaveRoom();
+    startFresh("daily", dailyWord());
+    restoreDaily();
+    closeAll();
+    showHome();
+  };
+}
+
+function raceTable() {
+  if (!mp) return "";
+  const list = Object.entries(mp.players || {}).map(([pid, p]) => ({
+    pid, name: p.name, done: p.done, solved: p.solved,
+    tries: (p.rows || []).length, at: p.finishedAt || 0
+  }));
+  list.sort((a, b) => {
+    if (a.solved !== b.solved) return a.solved ? -1 : 1;
+    if (a.solved && b.solved) return a.tries - b.tries || a.at - b.at;
+    return b.tries - a.tries;
+  });
+  return `<div class="plist">${list.map((p, i) =>
+    `<div class="prow ${i === 0 && p.solved ? "first" : ""}">
+       <span>${escapeHtml(p.name)} ${p.pid === myId ? '<span class="tagme">you</span>' : ""}</span>
+       <span class="res">${p.solved ? p.tries + "/6" : p.done ? "missed it" : "still guessing"}</span>
+     </div>`).join("")}</div>`;
+}
+
+function drawRivals() {
+  if (!mp || mode !== "race") { rivalsEl.classList.remove("on"); return; }
+  document.getElementById("btnRoom").classList.add("live");
+  const entries = Object.entries(mp.players || {});
+  rivalsEl.innerHTML = entries.map(([pid, p]) => {
+    const pattern = p.rows || [];
+    let cells = "";
+    for (let r = 0; r < MAX_ROWS; r++) {
+      for (let c = 0; c < LEN; c++) {
+        const s = pattern[r] ? UNCODE[pattern[r][c]] : "";
+        cells += `<i class="${s}"></i>`;
+      }
+    }
+    const stat = p.solved ? `<div class="pstat won">${pattern.length}/6</div>`
+      : p.done ? '<div class="pstat lost">missed</div>'
+      : `<div class="pstat">${pattern.length}/6</div>`;
+    return `<div class="pcard ${pid === myId ? "me" : ""}">
+      <div class="pname">${escapeHtml(p.name)}</div>
+      <div class="mini">${cells}</div>${stat}</div>`;
+  }).join("");
+  rivalsEl.classList.add("on");
+}
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
+}
+
+/* ---------- home screen ---------- */
+function dailyStatusLine() {
+  try {
+    const s = JSON.parse(store.get(dayKey()) || "null");
+    if (!s || !s.guesses || !s.guesses.length) return "Everyone gets the same one";
+    const last = s.guesses[s.guesses.length - 1];
+    if (s.done) return last === dailyWord()
+      ? `Solved today in ${s.guesses.length}`
+      : "Today's word beat you";
+    return `${s.guesses.length} of 6 guesses used`;
+  } catch (e) { return "Everyone gets the same one"; }
+}
+function showHome() {
+  document.body.classList.add("home");
+  document.getElementById("home").classList.add("on");
+  document.getElementById("dailyState").textContent = dailyStatusLine();
+  modeTag.textContent = "";
+  closeAll();
+}
+function hideHome() {
+  document.body.classList.remove("home");
+  document.getElementById("home").classList.remove("on");
+}
+document.getElementById("btnHome").onclick = () => { leaveRoom(); showHome(); };
+document.querySelectorAll("#home .mcard").forEach(card => {
+  card.onclick = () => {
+    const go = card.dataset.go;
+    if (go === "daily") { hideHome(); location.hash = ""; startFresh("daily", dailyWord()); restoreDaily(); }
+    else if (go === "practice") { hideHome(); location.hash = ""; startFresh("practice", randomWord()); }
+    else if (go === "secret") { hideHome(); startFresh("practice", randomWord()); document.getElementById("btnChallenge").click(); }
+    else if (go === "race") { hideHome(); startFresh("practice", randomWord()); renderRoom(); openModal("roomModal"); }
+  };
+});
+
+/* ---------- boot ---------- */
+function startFresh(m, w) {
+  mode = m; target = w;
+  rows = []; guessLog = []; cur = ""; row = 0; done = false; busy = false;
+  buildBoard(); buildKeyboard();
+  modeTag.textContent = m === "daily" ? "Today's word"
+    : m === "challenge" ? "A friend's word"
+    : m === "race" ? "Room " + (mp ? mp.code : "")
+    : "Random word";
+  drawRivals();
+}
+
+(function boot() {
+  const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+
+  const shared = h.get("db");
+  if (shared && /^https:\/\/\S+\.(firebaseio\.com|firebasedatabase\.app)\/?$/.test(shared)) {
+    DB_URL = shared.replace(/\/+$/, "");
+    store.set("wr_dburl", DB_URL);
+  }
+
+  const c = h.get("c");
+  const joining = h.get("r");
+
+  if (c) {
+    const w = decodeWord(c);
+    if (w && /^[a-z]{5}$/.test(w)) { mode = "challenge"; target = w; }
+  }
+
+  if (c) {
+    // a friend's secret word — go straight in
+    startFresh(mode, target);
+    hideHome();
+  } else if (joining && configured()) {
+    startFresh("practice", randomWord());
+    hideHome();
+    setTimeout(() => { renderRoom(); openModal("roomModal"); }, 400);
+  } else {
+    startFresh("daily", dailyWord());
+    restoreDaily();
+    showHome();
+    if (!store.get("wr_seen")) { openModal("helpModal"); store.set("wr_seen", "1"); }
+  }
+})();
+</script>
+</body>
+</html>
