@@ -173,8 +173,10 @@ body.home .spacer{display:none}
 body.inroom #btnChat{display:grid}
 #btnChat .dot{position:absolute; top:5px; right:5px; width:7px; height:7px; border-radius:50%; background:var(--spark); display:none}
 #btnChat.unread .dot{display:block}
-.chatsheet{display:flex; flex-direction:column; max-height:80vh}
-#chatLog{flex:1 1 auto; overflow-y:auto; min-height:180px; max-height:46vh; margin:14px 0 10px; display:flex; flex-direction:column; gap:8px}
+.chatsheet{display:flex; flex-direction:column; max-height:100%; overflow:hidden}
+#chatLog{flex:1 1 auto; min-height:110px; overflow-y:auto; -webkit-overflow-scrolling:touch; margin:14px 0 10px; display:flex; flex-direction:column; gap:8px}
+#chatModal{align-items:flex-end}
+#chatModal .sheet{margin-bottom:0}
 .msg{max-width:82%; padding:8px 11px; border-radius:11px; font-size:14px; line-height:1.4; word-break:break-word}
 .msg .who{display:block; font-size:10px; color:var(--dim); margin-bottom:2px}
 .msg.them{background:var(--ink-3); align-self:flex-start; border-bottom-left-radius:3px}
@@ -1183,6 +1185,23 @@ function renderSetup() {
 
 function roomRef(path) { return fb.ref(fb.db, path); }
 
+async function sweepOldRooms() {
+  // rooms whose players all closed the app never got cleaned up by leaveRoom
+  try {
+    const snap = await fb.get(roomRef("rooms"));
+    if (!snap.exists()) return;
+    const now = Date.now(), DAY = 24 * 60 * 60 * 1000;
+    const dead = [];
+    snap.forEach(c => {
+      const v = c.val() || {};
+      const empty = !v.players || !Object.keys(v.players).length;
+      const stale = v.createdAt && (now - v.createdAt) > DAY;
+      if (empty || stale) dead.push(c.key);
+    });
+    await Promise.all(dead.map(k => fb.remove(roomRef("rooms/" + k)).catch(() => {})));
+  } catch (e) { /* tidying is optional, never block play for it */ }
+}
+
 async function createRoom() {
   const name = (document.getElementById("pname").value || "Player").trim().slice(0, 12);
   store.set("wr_name", name);
@@ -1202,6 +1221,7 @@ async function createRoom() {
       players: { [myId]: { name, rows: [], done: false, solved: false, score: 0, joinedAt: Date.now() } }
     });
     mp = { code, pid: myId, name, isHost: true, status: "waiting", players: {} };
+    sweepOldRooms();          // background tidy, not awaited
     watchRoom();
     watchChat();
     document.body.classList.add("inroom");
@@ -1615,6 +1635,33 @@ function watchChat() {
   });
 }
 
+function scrollChatDown() {
+  // scrollHeight is stale until the browser has laid the new messages out
+  requestAnimationFrame(() => {
+    chatLog.scrollTop = chatLog.scrollHeight;
+    requestAnimationFrame(() => { chatLog.scrollTop = chatLog.scrollHeight; });
+  });
+}
+
+// iOS shrinks the visual viewport for the keyboard but leaves the layout
+// viewport alone, so a fixed popup ends up half underneath it.
+const chatScrim = document.getElementById("chatModal");
+function fitChatToKeyboard() {
+  const vv = window.visualViewport;
+  if (!vv || !chatOpen) return;
+  chatScrim.style.height = vv.height + "px";
+  chatScrim.style.top = vv.offsetTop + "px";
+  scrollChatDown();
+}
+function releaseChatFit() {
+  chatScrim.style.height = "";
+  chatScrim.style.top = "";
+}
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", fitChatToKeyboard);
+  window.visualViewport.addEventListener("scroll", fitChatToKeyboard);
+}
+
 function renderChat() {
   const msgs = (mp && mp.chat) || [];
   if (!msgs.length) {
@@ -1626,13 +1673,14 @@ function renderChat() {
        ${m.pid === myId ? "" : `<span class="who"><bdi>${escapeHtml(m.name)}</bdi></span>`}
        ${escapeHtml(m.text)}
      </div>`).join("");
-  chatLog.scrollTop = chatLog.scrollHeight;
+  scrollChatDown();
 }
 
 async function sendChat() {
   const text = chatText.value.trim().slice(0, 200);
   if (!text || !mp || !fb) return;
   chatText.value = "";
+  scrollChatDown();
   try {
     await fb.push(roomRef(`rooms/${mp.code}/chat`), {
       pid: myId, name: mp.name, text, at: Date.now()
@@ -1647,15 +1695,22 @@ function openChat() {
   mp.chatSeen = ((mp.chat) || []).length;
   renderChat();
   openModal("chatModal");
-  setTimeout(() => chatText.focus(), 150);
+  scrollChatDown();
+  setTimeout(() => { chatText.focus(); fitChatToKeyboard(); }, 150);
 }
 
 btnChat.onclick = openChat;
 document.getElementById("chatSend").onclick = sendChat;
 chatText.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); sendChat(); } });
-document.getElementById("chatModal").addEventListener("click", e => {
-  if (e.target.id === "chatModal" || e.target.matches("[data-close]")) chatOpen = false;
+chatScrim.addEventListener("click", e => {
+  if (e.target.id === "chatModal" || e.target.matches("[data-close]")) {
+    chatOpen = false;
+    chatText.blur();
+    releaseChatFit();
+  }
 });
+chatText.addEventListener("focus", () => setTimeout(fitChatToKeyboard, 120));
+chatText.addEventListener("blur", () => setTimeout(() => { if (!chatOpen) releaseChatFit(); }, 120));
 
 /* ---------- boot ---------- */
 function startFresh(m, w) {
