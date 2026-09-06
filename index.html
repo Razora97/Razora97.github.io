@@ -160,6 +160,9 @@ main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items
 .example .tile{--tile:36px; width:36px; height:36px; font-size:17px}
 .legend{font-size:13px; color:var(--dim); line-height:1.5; margin:0 0 14px}
 .legend b{color:var(--paper); font-weight:500}
+.tabs{display:flex; gap:5px; margin-top:14px; background:var(--ink); padding:4px; border-radius:10px}
+.tabs button{flex:1; padding:9px 6px; border-radius:7px; font-size:13px; color:var(--dim); transition:background .15s, color .15s}
+.tabs button.on{background:var(--ink-3); color:var(--paper)}
 .stats{display:flex; gap:6px; margin:16px 0 4px}
 .stat{flex:1; text-align:center; background:var(--ink-3); border-radius:9px; padding:11px 4px}
 .stat .n{font-size:22px; font-weight:700; line-height:1.1}
@@ -222,7 +225,6 @@ main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items
     <button id="btnHome" aria-label="Back to the menu"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 9.6V19a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9.6"/></svg></button>
     <button id="btnHelp" aria-label="How to play"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.8 2.8 0 1 1 3.4 2.8v1.4"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/></svg></button>
     <button id="btnRoom" aria-label="Play with friends"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9" r="2.4"/><path d="M15.6 15.4A4.6 4.6 0 0 1 21 19"/></svg></button>
-    <button id="btnChallenge" aria-label="Send a secret word"><svg viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path d="M12 15V4"/><path d="M8.5 7.5 12 4l3.5 3.5"/></svg></button>
     <button id="btnStats" aria-label="Statistics"><svg viewBox="0 0 24 24"><path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/></svg></button>
   </div>
 </header>
@@ -280,11 +282,15 @@ main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items
   <div id="answerReveal"></div>
   <div id="raceResult"></div>
   <div id="soloStats">
+    <div class="tabs" id="statTabs">
+      <button data-scope="daily">Daily word</button>
+      <button data-scope="practice">Practice</button>
+    </div>
     <div class="stats">
       <div class="stat"><div class="n" id="stPlayed">0</div><div class="l">Played</div></div>
       <div class="stat"><div class="n" id="stWin">0</div><div class="l">Win %</div></div>
-      <div class="stat"><div class="n" id="stStreak">0</div><div class="l">Streak</div></div>
-      <div class="stat"><div class="n" id="stBest">0</div><div class="l">Best</div></div>
+      <div class="stat"><div class="n" id="stStreak">0</div><div class="l" id="lblStreak">Streak</div></div>
+      <div class="stat"><div class="n" id="stBest">0</div><div class="l" id="lblBest">Best</div></div>
     </div>
     <div class="dist" id="dist"></div>
   </div>
@@ -818,7 +824,8 @@ function submit() {
     if (won || last) {
       done = true;
       if (won) boardEl.children[row].classList.add("win");
-      if (mode === "daily") record(won, rows.length);
+      if (mode === "daily") record("daily", won, rows.length);
+      if (mode === "practice") record("practice", won, rows.length);
       if (mode === "race") { pushProgress(true, won); if (won) claimWin(); }
       setTimeout(() => openStats(true), won ? 1300 : 900);
     } else {
@@ -861,55 +868,68 @@ function restoreDaily() {
 }
 
 /* ---------- solo stats ---------- */
+const STAT_KEY = { daily: "wr_stats", practice: "wr_stats_practice" };
 const blankStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0], lastDay: null });
-function readStats() { try { return JSON.parse(store.get("wr_stats")) || blankStats(); } catch (e) { return blankStats(); } }
-function record(won, tries) {
-  const s = readStats();
-  if (s.lastDay === dayNumber()) return;
+function readStats(scope) {
+  try { return JSON.parse(store.get(STAT_KEY[scope])) || blankStats(); } catch (e) { return blankStats(); }
+}
+function record(scope, won, tries) {
+  const s = readStats(scope);
+  if (scope === "daily") {
+    if (s.lastDay === dayNumber()) return;           // one entry per day
+    if (won) s.streak = (s.lastDay === dayNumber() - 1) ? s.streak + 1 : 1;
+    s.lastDay = dayNumber();
+  } else {
+    if (won) s.streak = s.streak + 1;                // consecutive solves
+  }
   s.played++;
-  if (won) {
-    s.wins++; s.dist[tries - 1]++;
-    s.streak = (s.lastDay === dayNumber() - 1) ? s.streak + 1 : 1;
-    s.best = Math.max(s.best, s.streak);
-  } else s.streak = 0;
-  s.lastDay = dayNumber();
-  store.set("wr_stats", JSON.stringify(s));
+  if (won) { s.wins++; s.dist[tries - 1]++; s.best = Math.max(s.best, s.streak); }
+  else s.streak = 0;
+  store.set(STAT_KEY[scope], JSON.stringify(s));
 }
 
 const solved = () => done && rows.length > 0 && rows[rows.length - 1].every(x => x === "correct");
 
-function openStats(isResult) {
-  const s = readStats();
+let statScope = "daily";
+
+function renderStats() {
+  const s = readStats(statScope);
   document.getElementById("stPlayed").textContent = s.played;
   document.getElementById("stWin").textContent = s.played ? Math.round(s.wins / s.played * 100) : 0;
   document.getElementById("stStreak").textContent = s.streak;
   document.getElementById("stBest").textContent = s.best;
+  document.getElementById("lblStreak").textContent = statScope === "daily" ? "Day streak" : "Win streak";
+  document.getElementById("lblBest").textContent = statScope === "daily" ? "Best run" : "Best streak";
+  document.querySelectorAll("#statTabs button").forEach(b =>
+    b.classList.toggle("on", b.dataset.scope === statScope));
+
+  const highlight = solved() && (
+    (statScope === "daily" && mode === "daily") || (statScope === "practice" && mode === "practice"));
   const max = Math.max(1, ...s.dist);
   document.getElementById("dist").innerHTML = s.dist.map((n, i) =>
-    `<div class="bar"><div class="idx">${i + 1}</div><div class="fill ${solved() && rows.length === i + 1 ? "hot" : ""}" style="width:${Math.max(9, Math.round(n / max * 100))}%">${n}</div></div>`
+    `<div class="bar"><div class="idx">${i + 1}</div><div class="fill ${highlight && rows.length === i + 1 ? "hot" : ""}" style="width:${Math.max(9, Math.round(n / max * 100))}%">${n}</div></div>`
   ).join("");
+}
+document.querySelectorAll("#statTabs button").forEach(b =>
+  b.onclick = () => { statScope = b.dataset.scope; renderStats(); });
+
+function openStats(isResult) {
+  statScope = (mode === "practice" || mode === "challenge") ? "practice" : "daily";
+  renderStats();
 
   const title = document.getElementById("statsTitle");
   const reveal = document.getElementById("answerReveal");
   const race = document.getElementById("raceResult");
   const soloBox = document.getElementById("soloStats");
-  const nextBtn = document.getElementById("btnNextRound");
 
   soloBox.style.display = mode === "race" ? "none" : "block";
   race.innerHTML = mode === "race" ? raceTable() : "";
-  syncReadyButton();
-
-  const players = Object.values((mp && mp.players) || {});
-  const allReady = players.length > 0 && players.every(p => p.ready);
-  nextBtn.textContent = mode === "race"
-    ? (mp && mp.isHost ? (allReady ? "Start the next round" : "Waiting for everyone to be ready") : "The host starts the next round")
-    : "Play a random word";
-  nextBtn.disabled = mode === "race" && !(mp && mp.isHost && allReady);
+  syncRoundButtons();
 
   if (isResult) {
     const champ = mode === "race" && mp && mp.winner && (mp.players || {})[mp.winner];
     if (mode === "race" && champ && mp.winner !== myId) {
-      title.textContent = `${champ.name} won it`;
+      title.textContent = `${champ.name} won it`; title.dir = "auto";
       reveal.innerHTML = `<div class="answer-reveal">Solved in ${(champ.rows || []).length}<b>${target}</b></div>`;
     } else if (mode === "race" && solved()) {
       title.textContent = "You won the round";
@@ -953,12 +973,12 @@ document.addEventListener("click", e => {
 document.getElementById("btnHelp").onclick = () => openModal("helpModal");
 document.getElementById("btnStats").onclick = () => openStats(false);
 document.getElementById("btnShare").onclick = () => copy(shareText(), "Result copied — paste it to your friends");
-document.getElementById("btnChallenge").onclick = () => {
+function openChallenge() {
   document.getElementById("linkBox").style.display = "none";
   document.getElementById("btnCopyLink").style.display = "none";
   openModal("challengeModal");
   setTimeout(() => document.getElementById("secretWord").focus(), 120);
-};
+}
 document.getElementById("btnReady").onclick = toggleReady;
 document.getElementById("btnNextRound").onclick = () => {
   if (mode === "race") { if (mp && mp.isHost) newRound(); return; }
@@ -1186,7 +1206,7 @@ function watchRoom() {
     if (document.getElementById("roomModal").classList.contains("open")) renderLobby();
     if (document.getElementById("statsModal").classList.contains("open") && mode === "race") {
       document.getElementById("raceResult").innerHTML = raceTable();
-      syncReadyButton();
+      syncRoundButtons();
     }
     drawRivals();
 
@@ -1281,17 +1301,28 @@ async function toggleReady() {
   try { await fb.update(roomRef(`rooms/${mp.code}/players/${myId}`), { ready: !meNow.ready }); }
   catch (e) { toast("Couldn't send that — check your connection"); }
 }
-function syncReadyButton() {
-  const btn = document.getElementById("btnReady");
-  if (mode !== "race" || !mp) { btn.style.display = "none"; return; }
-  const meNow = (mp.players || {})[myId] || {};
+function syncRoundButtons() {
+  const ready = document.getElementById("btnReady");
+  const next = document.getElementById("btnNextRound");
+  if (mode !== "race" || !mp) {
+    ready.style.display = "none";
+    next.textContent = "Play a random word";
+    next.disabled = false;
+    return;
+  }
   const players = Object.values(mp.players || {});
+  const meNow = (mp.players || {})[myId] || {};
   const readyCount = players.filter(p => p.ready).length;
-  btn.style.display = "block";
-  btn.textContent = meNow.ready
-    ? `Ready — ${readyCount} of ${players.length}`
-    : "I'm ready for the next round";
-  btn.classList.toggle("primary", !!meNow.ready);
+  const allReady = players.length > 0 && readyCount === players.length;
+
+  ready.style.display = "block";
+  ready.textContent = meNow.ready ? `Ready — ${readyCount} of ${players.length}` : "I'm ready for the next round";
+  ready.classList.toggle("primary", !!meNow.ready);
+
+  next.textContent = mp.isHost
+    ? (allReady ? "Start the next round" : `Waiting — ${readyCount} of ${players.length} ready`)
+    : (allReady ? "The host starts the next round" : `Waiting — ${readyCount} of ${players.length} ready`);
+  next.disabled = !(mp.isHost && allReady);
 }
 
 async function startMatch() {
@@ -1346,7 +1377,7 @@ function renderLobby() {
     <h2>${mp.isHost ? "Your room" : "Room"}</h2>
     <div class="roomcode"><b>${mp.code}</b><span>${mp.isHost ? "Read this out to your friends" : "You're in"} &middot; ${players.length} of ${MAX_PLAYERS}</span></div>
     <div class="plist">${players.length ? players.map(([pid, p]) =>
-      `<div class="prow"><span>${escapeHtml(p.name)} ${pid === myId ? '<span class="tagme">you</span>' : ""}
+      `<div class="prow"><span><bdi>${escapeHtml(p.name)}</bdi> ${pid === myId ? '<span class="tagme">you</span>' : ""}
          <em class="sub">${p.done ? (p.solved ? "solved in " + (p.rows || []).length : "missed it") : p.ready ? "ready" : "waiting"}</em>
        </span>
        <span class="pts">${p.score || 0}</span></div>`
@@ -1377,7 +1408,7 @@ function raceTable() {
   const top = list.length ? list[0].score : 0;
   return `<div class="plist">${list.map(p =>
     `<div class="prow ${p.score === top && top > 0 ? "first" : ""}">
-       <span>${escapeHtml(p.name)} ${p.pid === myId ? '<span class="tagme">you</span>' : ""}
+       <span><bdi>${escapeHtml(p.name)}</bdi> ${p.pid === myId ? '<span class="tagme">you</span>' : ""}
          <em class="sub">${p.solved ? "solved in " + p.tries : p.done ? "missed it" : "still guessing"}${p.ready ? " &middot; ready" : ""}</em>
        </span>
        <span class="pts">${p.score}</span>
@@ -1401,7 +1432,7 @@ function drawRivals() {
       : p.done ? '<div class="pstat lost">missed</div>'
       : `<div class="pstat">${pattern.length}/6</div>`;
     return `<div class="pcard ${pid === myId ? "me" : ""}">
-      <div class="pname">${escapeHtml(p.name)}</div>
+      <div class="pname"><bdi>${escapeHtml(p.name)}</bdi></div>
       <div class="mini">${cells}</div>${stat}</div>`;
   }).join("");
   rivalsEl.classList.add("on");
@@ -1447,7 +1478,7 @@ document.querySelectorAll("#home .mcard").forEach(card => {
     const go = card.dataset.go;
     if (go === "daily") { hideHome(); location.hash = ""; startFresh("daily", dailyWord()); restoreDaily(); }
     else if (go === "practice") { hideHome(); location.hash = ""; startFresh("practice", randomWord()); }
-    else if (go === "secret") { document.getElementById("btnChallenge").click(); }
+    else if (go === "secret") { openChallenge(); }
     else if (go === "race") { roomView = "choose"; renderRoom(); openModal("roomModal"); }
   };
 });
