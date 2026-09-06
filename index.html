@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Wordrush</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/png;base64,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">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -26,7 +28,9 @@ body{
   background:var(--ink); color:var(--paper);
   display:flex; flex-direction:column; align-items:center;
   overflow:hidden; overscroll-behavior:none;
-  padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom);
+  padding-top:env(safe-area-inset-top);
+  height:100vh;
+  height:100svh;   /* smallest visible height, so toolbars never cover the keys */
 }
 button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit}
 button:focus-visible, input:focus-visible{outline:2px solid var(--spark); outline-offset:2px}
@@ -126,7 +130,7 @@ main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items
 .row.win .tile{animation:hop .55s ease}
 @keyframes hop{30%{transform:translateY(-14px)}55%{transform:translateY(3px)}75%{transform:translateY(-4px)}100%{transform:translateY(0)}}
 
-#keyboard{width:100%; max-width:520px; padding:0 5px 8px; flex:0 0 auto; display:flex; flex-direction:column; gap:6px}
+#keyboard{width:100%; max-width:520px; padding:0 5px calc(24px + env(safe-area-inset-bottom)); flex:0 0 auto; display:flex; flex-direction:column; gap:6px}
 .krow{display:flex; gap:5px; justify-content:center}
 .key{
   flex:1 1 0; min-width:0; height:clamp(44px,7.2vh,54px);
