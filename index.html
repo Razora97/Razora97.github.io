@@ -160,9 +160,7 @@ main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items
 .example .tile{--tile:36px; width:36px; height:36px; font-size:17px}
 .legend{font-size:13px; color:var(--dim); line-height:1.5; margin:0 0 14px}
 .legend b{color:var(--paper); font-weight:500}
-.tabs{display:flex; gap:5px; margin-top:14px; background:var(--ink); padding:4px; border-radius:10px}
-.tabs button{flex:1; padding:9px 6px; border-radius:7px; font-size:13px; color:var(--dim); transition:background .15s, color .15s}
-.tabs button.on{background:var(--ink-3); color:var(--paper)}
+.scopelabel{margin-top:16px; font-size:12px; color:var(--dim); text-align:center}
 .stats{display:flex; gap:6px; margin:16px 0 4px}
 .stat{flex:1; text-align:center; background:var(--ink-3); border-radius:9px; padding:11px 4px}
 .stat .n{font-size:22px; font-weight:700; line-height:1.1}
@@ -282,10 +280,7 @@ main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items
   <div id="answerReveal"></div>
   <div id="raceResult"></div>
   <div id="soloStats">
-    <div class="tabs" id="statTabs">
-      <button data-scope="daily">Daily word</button>
-      <button data-scope="practice">Practice</button>
-    </div>
+    <div class="scopelabel" id="scopeLabel">Daily word</div>
     <div class="stats">
       <div class="stat"><div class="n" id="stPlayed">0</div><div class="l">Played</div></div>
       <div class="stat"><div class="n" id="stWin">0</div><div class="l">Win %</div></div>
@@ -294,7 +289,6 @@ main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items
     </div>
     <div class="dist" id="dist"></div>
   </div>
-  <button class="btn primary" id="btnShare">Copy my result</button>
   <button class="btn" id="btnReady">I'm ready</button>
   <button class="btn" id="btnNextRound">Play a random word</button>
 </div></div>
@@ -900,21 +894,17 @@ function renderStats() {
   document.getElementById("stBest").textContent = s.best;
   document.getElementById("lblStreak").textContent = statScope === "daily" ? "Day streak" : "Win streak";
   document.getElementById("lblBest").textContent = statScope === "daily" ? "Best run" : "Best streak";
-  document.querySelectorAll("#statTabs button").forEach(b =>
-    b.classList.toggle("on", b.dataset.scope === statScope));
+  document.getElementById("scopeLabel").textContent =
+    statScope === "daily" ? "Your daily record" : "Your practice record";
 
-  const highlight = solved() && (
-    (statScope === "daily" && mode === "daily") || (statScope === "practice" && mode === "practice"));
+  const highlight = solved();
   const max = Math.max(1, ...s.dist);
   document.getElementById("dist").innerHTML = s.dist.map((n, i) =>
     `<div class="bar"><div class="idx">${i + 1}</div><div class="fill ${highlight && rows.length === i + 1 ? "hot" : ""}" style="width:${Math.max(9, Math.round(n / max * 100))}%">${n}</div></div>`
   ).join("");
 }
-document.querySelectorAll("#statTabs button").forEach(b =>
-  b.onclick = () => { statScope = b.dataset.scope; renderStats(); });
-
 function openStats(isResult) {
-  statScope = (mode === "practice" || mode === "challenge") ? "practice" : "daily";
+  statScope = mode === "practice" ? "practice" : "daily";
   renderStats();
 
   const title = document.getElementById("statsTitle");
@@ -922,7 +912,7 @@ function openStats(isResult) {
   const race = document.getElementById("raceResult");
   const soloBox = document.getElementById("soloStats");
 
-  soloBox.style.display = mode === "race" ? "none" : "block";
+  soloBox.style.display = (mode === "race" || mode === "challenge") ? "none" : "block";
   race.innerHTML = mode === "race" ? raceTable() : "";
   syncRoundButtons();
 
@@ -947,11 +937,6 @@ function openStats(isResult) {
   openModal("statsModal");
 }
 
-function shareText() {
-  const head = mode === "daily" ? "Wordrush " + dayNumber() : "Wordrush";
-  const grid = rows.map(r => r.map(s => s === "correct" ? "🟩" : s === "present" ? "🟨" : "⬛").join("")).join("\n");
-  return `${head} ${solved() ? rows.length : "X"}/6\n\n${grid}`;
-}
 async function copy(text, okMsg) {
   try { await navigator.clipboard.writeText(text); toast(okMsg); }
   catch (e) {
@@ -972,7 +957,6 @@ document.addEventListener("click", e => {
 });
 document.getElementById("btnHelp").onclick = () => openModal("helpModal");
 document.getElementById("btnStats").onclick = () => openStats(false);
-document.getElementById("btnShare").onclick = () => copy(shareText(), "Result copied — paste it to your friends");
 function openChallenge() {
   document.getElementById("linkBox").style.display = "none";
   document.getElementById("btnCopyLink").style.display = "none";
@@ -1376,6 +1360,7 @@ function renderLobby() {
     <button class="close" data-close aria-label="Close">&times;</button>
     <h2>${mp.isHost ? "Your room" : "Room"}</h2>
     <div class="roomcode"><b>${mp.code}</b><span>${mp.isHost ? "Read this out to your friends" : "You're in"} &middot; ${players.length} of ${MAX_PLAYERS}</span></div>
+    <div class="scopelabel" style="margin-top:12px">Scores below count in this room only</div>
     <div class="plist">${players.length ? players.map(([pid, p]) =>
       `<div class="prow"><span><bdi>${escapeHtml(p.name)}</bdi> ${pid === myId ? '<span class="tagme">you</span>' : ""}
          <em class="sub">${p.done ? (p.solved ? "solved in " + (p.rows || []).length : "missed it") : p.ready ? "ready" : "waiting"}</em>
