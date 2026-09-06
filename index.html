@@ -101,6 +101,7 @@ body.home #clock{display:none}
 .pcard{flex:0 0 auto; text-align:center; min-width:40px}
 .pname{font-size:10px; color:var(--dim); margin-bottom:4px; max-width:52px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .pcard.me .pname{color:var(--spark)}
+.pcard.idle{opacity:.45}
 .mini{display:grid; grid-template-columns:repeat(5,var(--cell)); gap:2px; justify-content:center}
 .mini i{width:var(--cell); height:var(--cell); border-radius:1px; background:var(--ink-3); display:block}
 .mini i.correct{background:var(--jade)}
@@ -168,6 +169,21 @@ body.home .spacer{display:none}
 .legend{font-size:13px; color:var(--dim); line-height:1.5; margin:0 0 14px}
 .legend b{color:var(--paper); font-weight:500}
 .scopelabel{margin-top:16px; font-size:12px; color:var(--dim); text-align:center}
+#btnChat{display:none; position:relative}
+body.inroom #btnChat{display:grid}
+#btnChat .dot{position:absolute; top:5px; right:5px; width:7px; height:7px; border-radius:50%; background:var(--spark); display:none}
+#btnChat.unread .dot{display:block}
+.chatsheet{display:flex; flex-direction:column; max-height:80vh}
+#chatLog{flex:1 1 auto; overflow-y:auto; min-height:180px; max-height:46vh; margin:14px 0 10px; display:flex; flex-direction:column; gap:8px}
+.msg{max-width:82%; padding:8px 11px; border-radius:11px; font-size:14px; line-height:1.4; word-break:break-word}
+.msg .who{display:block; font-size:10px; color:var(--dim); margin-bottom:2px}
+.msg.them{background:var(--ink-3); align-self:flex-start; border-bottom-left-radius:3px}
+.msg.mine{background:var(--jade); color:#fff; align-self:flex-end; border-bottom-right-radius:3px}
+.msg.mine .who{color:rgba(255,255,255,.75)}
+.chatempty{color:var(--dim); font-size:13px; text-align:center; margin:auto 0}
+.chatbar{display:flex; gap:8px; align-items:center; flex:0 0 auto}
+.chatbar .field{margin-top:0; flex:1}
+.chatbar .btn{margin-top:0; width:auto; padding:13px 16px; flex:0 0 auto}
 .stats{display:flex; gap:6px; margin:16px 0 4px}
 .stat{flex:1; text-align:center; background:var(--ink-3); border-radius:9px; padding:11px 4px}
 .stat .n{font-size:22px; font-weight:700; line-height:1.1}
@@ -242,6 +258,7 @@ body.home .spacer{display:none}
     <button id="btnHome" aria-label="Back to the menu"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5"/><path d="M6 9.6V19a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V9.6"/></svg></button>
     <button id="btnHelp" aria-label="How to play"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.3a2.8 2.8 0 1 1 3.4 2.8v1.4"/><circle cx="12" cy="17" r=".9" fill="currentColor" stroke="none"/></svg></button>
     <button id="btnRoom" aria-label="Play with friends"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9" r="2.4"/><path d="M15.6 15.4A4.6 4.6 0 0 1 21 19"/></svg></button>
+    <button id="btnChat" aria-label="Room chat"><svg viewBox="0 0 24 24"><path d="M20 12a7.5 7.5 0 0 1-9.9 7.1L5 20.5l1.4-4.6A7.5 7.5 0 1 1 20 12z"/></svg><i class="dot"></i></button>
     <button id="btnStats" aria-label="Statistics"><svg viewBox="0 0 24 24"><path d="M5 20V11"/><path d="M12 20V4"/><path d="M19 20v-6"/></svg></button>
   </div>
 </header>
@@ -312,6 +329,7 @@ body.home .spacer{display:none}
   </div>
   <button class="btn" id="btnReady">I'm ready</button>
   <button class="btn" id="btnNextRound">Play a random word</button>
+  <button class="btn ghost" id="btnQuitRoom">Leave the room</button>
 </div></div>
 
 <div class="scrim" id="challengeModal"><div class="sheet">
@@ -327,6 +345,16 @@ body.home .spacer{display:none}
 </div></div>
 
 <div class="scrim" id="roomModal"><div class="sheet" id="roomSheet"></div></div>
+
+<div class="scrim" id="chatModal"><div class="sheet chatsheet">
+  <button class="close" data-close aria-label="Close">&times;</button>
+  <h2>Room chat</h2>
+  <div id="chatLog"></div>
+  <div class="chatbar">
+    <input class="field" id="chatText" maxlength="200" placeholder="Say something" autocomplete="off">
+    <button class="btn primary" id="chatSend" aria-label="Send">Send</button>
+  </div>
+</div></div>
 
 <script>
 /* ==========================================================================
@@ -836,6 +864,7 @@ function submit() {
 
   setTimeout(() => {
     busy = false;
+    if (mode === "race" && done) return;   // the round closed while this guess was animating
     if (won || last) {
       done = true;
       if (won) boardEl.children[row].classList.add("win");
@@ -955,7 +984,12 @@ function openStats(isResult) {
     title.textContent = mode === "race" ? "The race" : "Statistics";
     reveal.innerHTML = "";
   }
-  openModal("statsModal");
+  const sm = document.getElementById("statsModal");
+  const lock = mode === "race" && isResult;
+  sm.classList.toggle("locked", lock);
+  sm.querySelector(".close").style.display = lock ? "none" : "grid";
+  closeAll(true);              // nothing may sit on top of the result
+  sm.classList.add("open");
 }
 
 async function copy(text, okMsg) {
@@ -971,10 +1005,15 @@ async function copy(text, okMsg) {
 
 /* ---------- modals ---------- */
 function openModal(id) { document.getElementById(id).classList.add("open"); }
-function closeAll() { document.querySelectorAll(".scrim").forEach(s => s.classList.remove("open")); }
+function closeAll(force) {
+  document.querySelectorAll(".scrim").forEach(el => {
+    if (!force && el.classList.contains("locked")) return;   // race results stay put
+    el.classList.remove("open");
+  });
+}
 document.addEventListener("click", e => {
-  if (e.target.matches("[data-close]")) closeAll();
-  if (e.target.classList.contains("scrim")) closeAll();
+  if (e.target.matches("[data-close]")) closeAll(false);
+  if (e.target.classList.contains("scrim")) closeAll(false);
 });
 document.getElementById("btnHelp").onclick = () => openModal("helpModal");
 document.getElementById("btnStats").onclick = () => openStats(false);
@@ -985,6 +1024,13 @@ function openChallenge() {
   setTimeout(() => document.getElementById("secretWord").focus(), 120);
 }
 document.getElementById("btnReady").onclick = toggleReady;
+document.getElementById("btnQuitRoom").onclick = () => {
+  document.getElementById("statsModal").classList.remove("locked");
+  leaveRoom();
+  startFresh("daily", dailyWord());
+  restoreDaily();
+  showHome();
+};
 document.getElementById("btnNextRound").onclick = () => {
   if (mode === "race") { if (mp && mp.isHost) newRound(); return; }
   location.hash = "";
@@ -1020,7 +1066,7 @@ document.getElementById("btnMakeLink").onclick = () => {
 };
 
 window.addEventListener("keydown", e => {
-  if (document.querySelector(".scrim.open")) { if (e.key === "Escape") closeAll(); return; }
+  if (document.querySelector(".scrim.open")) { if (e.key === "Escape") closeAll(false); return; }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === "Enter") press("ENTER");
   else if (e.key === "Backspace") press("DEL");
@@ -1157,6 +1203,8 @@ async function createRoom() {
     });
     mp = { code, pid: myId, name, isHost: true, status: "waiting", players: {} };
     watchRoom();
+    watchChat();
+    document.body.classList.add("inroom");
     renderLobby();
   } catch (e) {
     hint.className = "hint bad";
@@ -1180,9 +1228,22 @@ async function joinRoom(code) {
       hint.textContent = `That room is full — ${MAX_PLAYERS} players is the limit. Start a second room.`;
       return;
     }
-    await fb.set(roomRef(`rooms/${code}/players/${myId}`), { name, rows: [], done: false, solved: false, score: (existing[myId] && existing[myId].score) || 0, joinedAt: Date.now() });
-    mp = { code, pid: myId, name, isHost: snap.val().hostId === myId, status: snap.val().status, players: {} };
+    const v = snap.val();
+    const midRound = v.status === "playing";
+    await fb.set(roomRef(`rooms/${code}/players/${myId}`), {
+      name, rows: [],
+      done: midRound,          // sit this round out rather than blocking it
+      solved: false,
+      waiting: midRound,
+      score: (existing[myId] && existing[myId].score) || 0,
+      joinedAt: Date.now()
+    });
+    // carry the current round number so the watcher doesn't mistake this for a fresh start
+    mp = { code, pid: myId, name, isHost: v.hostId === myId, status: v.status, round: v.round, players: {} };
+    if (midRound) toast("Round in progress — you're in for the next one", 2600);
     watchRoom();
+    watchChat();
+    document.body.classList.add("inroom");
     renderLobby();
   } catch (e) {
     hint.className = "hint bad";
@@ -1205,7 +1266,7 @@ function watchRoom() {
     if (r.status === "playing" && (wasStatus !== "playing" || wasRound !== r.round)) {
       hideHome();
       startFresh("race", r.word);
-      closeAll();
+      closeAll(true);
       toast("Go!", 900);
     }
     if (document.getElementById("roomModal").classList.contains("open")) renderLobby();
@@ -1223,14 +1284,22 @@ function watchRoom() {
     const anySolved = ps.some(([, p]) => p.solved);
 
     // somebody got it — everyone stops here
-    if (r.status === "over" && mode === "race" && !done) {
-      done = true; busy = true;
-      clearInterval(clockTimer);
-      clockEl.classList.remove("on");
-      const w = r.winner && (mp.players || {})[r.winner];
-      pushProgress(true, false);
-      toast(w ? `${w.name} got it` : "Round over");
-      setTimeout(() => openStats(true), 800);
+    if (r.status === "over" && mode === "race") {
+      if (!done) {
+        done = true; busy = false;
+        clearInterval(clockTimer);
+        clockEl.classList.remove("on");
+        const w = r.winner && (mp.players || {})[r.winner];
+        pushProgress(true, false);
+        toast(w ? `${w.name} got it` : "Round over");
+      }
+      // show the result whatever else is on screen, and keep trying if it got closed
+      if (!document.getElementById("statsModal").classList.contains("open")) {
+        clearTimeout(mp.resultTimer);
+        mp.resultTimer = setTimeout(() => {
+          if (mp && mp.status === "over" && mode === "race") openStats(true);
+        }, 800);
+      }
     }
 
     // everyone out of guesses, nobody solved
@@ -1311,6 +1380,7 @@ function syncRoundButtons() {
   const next = document.getElementById("btnNextRound");
   if (mode !== "race" || !mp) {
     ready.style.display = "none";
+    document.getElementById("btnQuitRoom").style.display = "none";
     next.textContent = "Play a random word";
     next.disabled = false;
     return;
@@ -1321,6 +1391,7 @@ function syncRoundButtons() {
   const allReady = players.length > 0 && readyCount === players.length;
 
   ready.style.display = "block";
+  document.getElementById("btnQuitRoom").style.display = "block";
   ready.textContent = meNow.ready ? `Ready — ${readyCount} of ${players.length}` : "I'm ready for the next round";
   ready.classList.toggle("primary", !!meNow.ready);
 
@@ -1337,6 +1408,7 @@ async function startMatch() {
     updates[`players/${pid}/done`] = false;
     updates[`players/${pid}/solved`] = false;
     updates[`players/${pid}/ready`] = false;
+    updates[`players/${pid}/waiting`] = false;
     updates[`players/${pid}/finishedAt`] = null;
   });
   await fb.update(roomRef("rooms/" + mp.code), updates);
@@ -1359,9 +1431,24 @@ async function pushProgress(finished, won) {
 function leaveRoom() {
   clearInterval(clockTimer);
   clockEl.classList.remove("on");
+  document.body.classList.remove("inroom");
+  btnChat.classList.remove("unread");
+  chatOpen = false;
   if (mp) {
     if (mp.unsub) mp.unsub();
-    if (fb) fb.remove(roomRef(`rooms/${mp.code}/players/${myId}`)).catch(() => {});
+    if (mp.chatUnsub) mp.chatUnsub();
+    clearTimeout(mp.resultTimer);
+    if (fb) {
+      const others = Object.keys(mp.players || {}).filter(p => p !== myId);
+      if (!others.length) {
+        // last one out clears the room
+        fb.remove(roomRef(`rooms/${mp.code}`)).catch(() => {});
+      } else {
+        // pass the host role on, or nobody could ever start another round
+        if (mp.isHost) fb.update(roomRef(`rooms/${mp.code}`), { hostId: others[0] }).catch(() => {});
+        fb.remove(roomRef(`rooms/${mp.code}/players/${myId}`)).catch(() => {});
+      }
+    }
   }
   mp = null;
   roomView = "choose";
@@ -1390,7 +1477,7 @@ function renderLobby() {
     <div class="scopelabel" style="margin-top:12px">${players.length} of ${MAX_PLAYERS} players &middot; scores count in this room only</div>
     <div class="plist">${players.length ? players.map(([pid, p]) =>
       `<div class="prow"><span><bdi>${escapeHtml(p.name)}</bdi> ${pid === myId ? '<span class="tagme">you</span>' : ""}
-         <em class="sub">${p.done ? (p.solved ? "solved in " + (p.rows || []).length : "missed it") : p.ready ? "ready" : "waiting"}</em>
+         <em class="sub">${p.waiting ? "joins next round" : p.done ? (p.solved ? "solved in " + (p.rows || []).length : "missed it") : p.ready ? "ready" : "waiting"}</em>
        </span>
        <span class="pts">${p.score || 0}</span></div>`
     ).join("") : '<p>Nobody has joined yet.</p>'}</div>
@@ -1398,6 +1485,7 @@ function renderLobby() {
       ? `<button class="btn primary" id="startBtn" ${played && !allReady ? "disabled" : ""}>${played ? (allReady ? "Start the next round" : `Waiting — ${readyCount} of ${players.length} ready`) : "Start the race"}</button>`
       : `<p>${mp.status === "playing" ? "Round in progress." : "Waiting for the host to start."}</p>`}
     <button class="btn" id="leaveBtn">Leave the room</button>`;
+
 
   const cc = document.getElementById("copyCode");
   cc.onclick = async () => {
@@ -1426,7 +1514,7 @@ function renderLobby() {
 function raceTable() {
   if (!mp) return "";
   const list = Object.entries(mp.players || {}).map(([pid, p]) => ({
-    pid, name: p.name, done: p.done, solved: p.solved, ready: p.ready,
+    pid, name: p.name, done: p.done, solved: p.solved, ready: p.ready, waiting: p.waiting,
     score: p.score || 0, tries: (p.rows || []).length, at: p.finishedAt || 0
   }));
   list.sort((a, b) => b.score - a.score || a.tries - b.tries);
@@ -1434,7 +1522,7 @@ function raceTable() {
   return `<div class="plist">${list.map(p =>
     `<div class="prow ${p.score === top && top > 0 ? "first" : ""}">
        <span><bdi>${escapeHtml(p.name)}</bdi> ${p.pid === myId ? '<span class="tagme">you</span>' : ""}
-         <em class="sub">${p.solved ? "solved in " + p.tries : p.done ? "missed it" : "still guessing"}${p.ready ? " &middot; ready" : ""}</em>
+         <em class="sub">${p.waiting ? "joins next round" : p.solved ? "solved in " + p.tries : p.done ? "missed it" : "still guessing"}${p.ready ? " &middot; ready" : ""}</em>
        </span>
        <span class="pts">${p.score}</span>
      </div>`).join("")}</div>`;
@@ -1453,10 +1541,11 @@ function drawRivals() {
         cells += `<i class="${s}"></i>`;
       }
     }
-    const stat = p.solved ? `<div class="pstat won">${pattern.length}/6</div>`
+    const stat = p.waiting ? '<div class="pstat">waiting</div>'
+      : p.solved ? `<div class="pstat won">${pattern.length}/6</div>`
       : p.done ? '<div class="pstat lost">missed</div>'
       : `<div class="pstat">${pattern.length}/6</div>`;
-    return `<div class="pcard ${pid === myId ? "me" : ""}">
+    return `<div class="pcard ${pid === myId ? "me" : ""} ${p.waiting ? "idle" : ""}">
       <div class="pname"><bdi>${escapeHtml(p.name)}</bdi></div>
       <div class="mini">${cells}</div>${stat}</div>`;
   }).join("");
@@ -1491,7 +1580,7 @@ function showHome() {
   document.getElementById("home").classList.add("on");
   refreshHomeCards();
   modeTag.textContent = "";
-  closeAll();
+  closeAll(true);
 }
 function hideHome() {
   document.body.classList.remove("home");
@@ -1506,6 +1595,66 @@ document.querySelectorAll("#home .mcard").forEach(card => {
     else if (go === "secret") { openChallenge(); }
     else if (go === "race") { roomView = "choose"; renderRoom(); openModal("roomModal"); }
   };
+});
+
+/* ---------- room chat ---------- */
+const chatLog = document.getElementById("chatLog");
+const chatText = document.getElementById("chatText");
+const btnChat = document.getElementById("btnChat");
+let chatOpen = false;
+
+function watchChat() {
+  if (mp.chatUnsub) mp.chatUnsub();
+  const q = fb.query(roomRef(`rooms/${mp.code}/chat`), fb.limitToLast(60));
+  mp.chatUnsub = fb.onValue(q, snap => {
+    const msgs = [];
+    snap.forEach(c => { msgs.push(c.val()); });
+    mp.chat = msgs;
+    if (chatOpen) { renderChat(); mp.chatSeen = msgs.length; }
+    else if (msgs.length > (mp.chatSeen || 0)) btnChat.classList.add("unread");
+  });
+}
+
+function renderChat() {
+  const msgs = (mp && mp.chat) || [];
+  if (!msgs.length) {
+    chatLog.innerHTML = '<div class="chatempty">Nothing yet. Say hello.</div>';
+    return;
+  }
+  chatLog.innerHTML = msgs.map(m =>
+    `<div class="msg ${m.pid === myId ? "mine" : "them"}">
+       ${m.pid === myId ? "" : `<span class="who"><bdi>${escapeHtml(m.name)}</bdi></span>`}
+       ${escapeHtml(m.text)}
+     </div>`).join("");
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+async function sendChat() {
+  const text = chatText.value.trim().slice(0, 200);
+  if (!text || !mp || !fb) return;
+  chatText.value = "";
+  try {
+    await fb.push(roomRef(`rooms/${mp.code}/chat`), {
+      pid: myId, name: mp.name, text, at: Date.now()
+    });
+  } catch (e) { toast("Message didn't send"); chatText.value = text; }
+}
+
+function openChat() {
+  if (!mp) return;
+  chatOpen = true;
+  btnChat.classList.remove("unread");
+  mp.chatSeen = ((mp.chat) || []).length;
+  renderChat();
+  openModal("chatModal");
+  setTimeout(() => chatText.focus(), 150);
+}
+
+btnChat.onclick = openChat;
+document.getElementById("chatSend").onclick = sendChat;
+chatText.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); sendChat(); } });
+document.getElementById("chatModal").addEventListener("click", e => {
+  if (e.target.id === "chatModal" || e.target.matches("[data-close]")) chatOpen = false;
 });
 
 /* ---------- boot ---------- */
