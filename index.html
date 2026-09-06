@@ -110,7 +110,7 @@ body.home #clock{display:none}
 .pstat.won{color:var(--jade)}
 .pstat.lost{color:var(--danger)}
 
-main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:0; padding:6px 0}
+main{flex:0 1 auto; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:0; padding:2px 0 14px}
 #board{display:grid; grid-template-rows:repeat(6,var(--tile)); gap:var(--gap)}
 .row{display:grid; grid-template-columns:repeat(5,var(--tile)); gap:var(--gap)}
 .tile{
@@ -130,7 +130,10 @@ main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items
 .row.win .tile{animation:hop .55s ease}
 @keyframes hop{30%{transform:translateY(-14px)}55%{transform:translateY(3px)}75%{transform:translateY(-4px)}100%{transform:translateY(0)}}
 
-#keyboard{width:100%; max-width:520px; padding:0 5px calc(24px + env(safe-area-inset-bottom)); flex:0 0 auto; display:flex; flex-direction:column; gap:6px}
+#keyboard{width:100%; max-width:520px; padding:0 5px; flex:0 0 auto; display:flex; flex-direction:column; gap:6px}
+.spacer{flex:1 1 auto; min-height:0}
+#tail{flex:2.2 1 auto; min-height:calc(12px + env(safe-area-inset-bottom))}
+body.home .spacer{display:none}
 .krow{display:flex; gap:5px; justify-content:center}
 .key{
   flex:1 1 0; min-width:0; height:clamp(44px,7.2vh,54px);
@@ -260,8 +263,10 @@ main{flex:1 1 auto; width:100%; display:flex; flex-direction:column; align-items
 
 <div id="rivals"></div>
 <div id="clock"><b id="clockNum">30</b> seconds left</div>
+<div class="spacer" id="lead"></div>
 <main><div id="board" role="grid" aria-label="Guess board"></div></main>
 <div id="keyboard"></div>
+<div class="spacer" id="tail"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <div class="scrim" id="helpModal"><div class="sheet">
@@ -1482,6 +1487,10 @@ function startFresh(m, w) {
     : m === "race" ? "Room " + (mp ? mp.code : "")
     : "Random word";
   drawRivals();
+}
+
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }
 
 (function boot() {
