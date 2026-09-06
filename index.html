@@ -86,6 +86,7 @@ body:not(.home) #btnHome{display:grid}
   color:var(--ochre); border-bottom:1px solid var(--line);
 }
 #clock.on{display:block}
+#clock{position:relative; z-index:2}
 #clock b{font-size:17px; font-weight:700; font-variant-numeric:tabular-nums}
 #clock.urgent{color:var(--danger)}
 body.home #clock{display:none}
@@ -111,7 +112,7 @@ body.home #clock{display:none}
 .pstat.won{color:var(--jade)}
 .pstat.lost{color:var(--danger)}
 
-main{flex:0 1 auto; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:0; padding:2px 0 14px}
+main{flex:0 0 auto; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:0; padding:2px 0 14px}
 #board{display:grid; grid-template-rows:repeat(6,var(--tile)); gap:var(--gap)}
 .row{display:grid; grid-template-columns:repeat(5,var(--tile)); gap:var(--gap)}
 .tile{
@@ -133,7 +134,7 @@ main{flex:0 1 auto; width:100%; display:flex; flex-direction:column; align-items
 
 #keyboard{width:100%; max-width:520px; padding:0 5px; flex:0 0 auto; display:flex; flex-direction:column; gap:6px}
 .spacer{flex:1 1 auto; min-height:0}
-#tail{flex:2.2 1 auto; min-height:calc(12px + env(safe-area-inset-bottom))}
+#tail{flex:1.7 1 auto; min-height:calc(10px + env(safe-area-inset-bottom))}
 body.home .spacer{display:none}
 .krow{display:flex; gap:5px; justify-content:center}
 .key{
@@ -1680,6 +1681,7 @@ async function sendChat() {
   const text = chatText.value.trim().slice(0, 200);
   if (!text || !mp || !fb) return;
   chatText.value = "";
+  chatText.focus();          // stay in the field so the keyboard doesn't drop
   scrollChatDown();
   try {
     await fb.push(roomRef(`rooms/${mp.code}/chat`), {
@@ -1700,7 +1702,11 @@ function openChat() {
 }
 
 btnChat.onclick = openChat;
-document.getElementById("chatSend").onclick = sendChat;
+const chatSendBtn = document.getElementById("chatSend");
+chatSendBtn.onclick = sendChat;
+// pressing the button must not pull focus off the input
+chatSendBtn.addEventListener("mousedown", e => e.preventDefault());
+chatSendBtn.addEventListener("pointerdown", e => e.preventDefault());
 chatText.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); sendChat(); } });
 chatScrim.addEventListener("click", e => {
   if (e.target.id === "chatModal" || e.target.matches("[data-close]")) {
